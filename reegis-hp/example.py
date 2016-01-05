@@ -8,6 +8,7 @@ General description:
 # imports
 ###############################################################################
 import os
+import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -34,11 +35,11 @@ con = db.connection()
 basic_path = os.path.join(os.path.expanduser("~"), '.oemof', 'data_files')
 if not os.path.exists(basic_path):
     os.makedirs(basic_path)
-data = pd.read_sql_table('test_data', con, 'app_reegis')
-data.to_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
+#data = pd.read_sql_table('test_data', con, 'app_reegis')
+#data.to_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
 data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
 timesteps = [t for t in range(8760)]
-print(data.keys())
+logging.info(list(data.keys()))
 #engine = db.engine()
 #data.to_sql("test_data", engine, schema="app_reegis")
 ###############################################################################
@@ -50,6 +51,15 @@ transformer.Storage.optimization_options.update({'investment': True})
 ###############################################################################
 # Create oemof objetc
 ###############################################################################
+
+# TODO: other solver libraries should be passable
+simulation = es.Simulation(
+    solver='gurobi', timesteps=timesteps,
+    stream_solver_output=True,
+    objective_options={
+        'function': predefined_objectives.minimize_cost})
+
+energysystem = es.EnergySystem(simulation=simulation, year=2010)
 
 # create bus
 bgas = Bus(uid="bgas",
@@ -72,14 +82,14 @@ district_heat_demand = sink.Simple(uid="demand_distr_heat",
                                    inputs=[district_heat_bus],
                                    val=data['dst0'])
 
-bus_domestic_oil_heat = Bus(uid="bus_distr_heat",
-                            type="distr_heat",
-                            excess=True)
-
 # create commodity object for gas resource
 rgas = source.Commodity(uid='rgas',
                         outputs=[bgas],
-                        sum_out_limit=194397000)
+                        opex_var=50)
+
+pp_gas = transformer.Simple(uid='pp_gas',
+                            inputs=[bgas], outputs=[district_heat_bus],
+                            opex_var=30, out_max=[10e10], eta=[0.88])
 
 # create fixed source object for wind
 wind = source.FixedSource(uid="wind",
@@ -110,6 +120,8 @@ demand = sink.Simple(uid="demand", inputs=[bel], val=data['elec'])
 pp_gas = transformer.CHP(uid='chp_gas',
                          inputs=[bgas], outputs=[bel, district_heat_bus],
                          opex_var=50, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
+
+
 
 # create storage transformer object for storage
 storage = transformer.Storage(uid='sto_simple',
@@ -153,13 +165,12 @@ simulation = es.Simulation(
     objective_options={
         'function': predefined_objectives.minimize_cost})
 
-energysystem = es.EnergySystem(entities=entities, simulation=simulation)
-energysystem.year = 2010
+#energysystem.optimize()
+#energysystem.dump()
+logging.info(energysystem.restore())
 
-energysystem.optimize()
-
-prange = pd.date_range(pd.datetime(energysystem.year, 6, 1, 0, 0),
-                       periods=336, freq='H')
+prange = pd.date_range(pd.datetime(energysystem.year, 3, 10, 0, 0),
+                       periods=168, freq='H')
 
 # Initialise the plot object with the energy system
 plot = devplots.stackplot(es=energysystem)
@@ -176,5 +187,5 @@ plot.part(prange, ax, in_color=c_in, out_color=c_out)
 
 ax = fig.add_subplot(2, 1, 2)
 plot.plot_dc = plot.create_io_df(district_heat_bus.uid)
-plot.part(prange, ax, in_color=c_in, out_color=c_out)
+plot.part(prange, ax)
 plt.show()
