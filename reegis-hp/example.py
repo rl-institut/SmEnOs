@@ -12,7 +12,9 @@ import logging
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from oemof.outputlib import devplots
+# Outputlib
+from oemof.outputlib import to_pandas as tpd
+
 from oemof_pg import db
 from oemof.tools import logger
 # import solph module to create/process optimization model instance
@@ -59,7 +61,7 @@ simulation = es.Simulation(
     objective_options={
         'function': predefined_objectives.minimize_cost})
 
-energysystem = es.EnergySystem(simulation=simulation, year=2010)
+energysystem = es.EnergySystem(simulation=simulation, year=2016)
 
 # create bus
 bgas = Bus(uid="bgas",
@@ -121,8 +123,6 @@ pp_gas = transformer.CHP(uid='chp_gas',
                          inputs=[bgas], outputs=[bel, district_heat_bus],
                          opex_var=50, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
 
-
-
 # create storage transformer object for storage
 storage = transformer.Storage(uid='sto_simple',
                               inputs=[bel],
@@ -142,50 +142,36 @@ storage = transformer.Storage(uid='sto_simple',
 # Create, solve and postprocess OptimizationModel instance
 ###############################################################################
 
-# group busses
-buses = [bgas, bel]
-
-# create lists of components
-transformers = [pp_gas]
-renewable_sources = [pv, wind]
-commodities = [rgas]
-storages = [storage]
-sinks = [demand]
-
-# groupt components
-components = transformers + renewable_sources + storages + sinks + commodities
-
-# create list of all entities
-entities = components + buses
-
-# TODO: other solver libraries should be passable
-simulation = es.Simulation(
-    solver='gurobi', timesteps=timesteps,
-    stream_solver_output=True,
-    objective_options={
-        'function': predefined_objectives.minimize_cost})
-
 #energysystem.optimize()
 #energysystem.dump()
 logging.info(energysystem.restore())
 
-prange = pd.date_range(pd.datetime(energysystem.year, 3, 10, 0, 0),
-                       periods=168, freq='H')
+# Creation of a multi-indexed pandas dataframe
+es_df = tpd.EnergySystemDataFrame(energy_system=energysystem,
+                                  idx_start_date="2016-01-01 00:00:00",
+                                  ixd_date_freq="H")
+es_df.data_frame.describe
 
-# Initialise the plot object with the energy system
-plot = devplots.stackplot(es=energysystem)
+# Plotting a combined stacked plot
+fig = plt.figure(figsize=(24, 14))
+plt.rc('legend', **{'fontsize': 19})
 
-# Prepare the time series to plot the balance around the electricity bus
-plot.plot_dc = plot.create_io_df(bel.uid)
-
-# Plotting the bus balance with an own color set.
-c_in = ['#4536bb', '#ffcc00', '#7c7c7c', '#ff5e5e']
-c_out = ['#0cce1e', '#ff5e5e']
-fig = plot.create_fig()
 ax = fig.add_subplot(2, 1, 1)
-plot.part(prange, ax, in_color=c_in, out_color=c_out)
+es_df.stackplot(bus_uid="bel", bus_type="el", ax=ax,
+                date_from="2016-06-01 00:00:00",
+                date_to="2016-06-8 00:00:00",
+                title="Electricity bus",
+                ylabel="Power in MW", xlabel="Date",
+                linewidth=4,
+                tick_distance=24)
 
-ax = fig.add_subplot(2, 1, 2)
-plot.plot_dc = plot.create_io_df(district_heat_bus.uid)
-plot.part(prange, ax)
+ax2 = fig.add_subplot(2, 1, 2)
+es_df.stackplot(bus_uid="bus_distr_heat", bus_type="distr_heat", ax=ax2,
+                date_from="2016-06-01 00:00:00",
+                date_to="2016-06-8 00:00:00",
+                title="District heating bus",
+                ylabel="Power in MW", xlabel="Date",
+                linewidth=4,
+                tick_distance=24)
+
 plt.show()
