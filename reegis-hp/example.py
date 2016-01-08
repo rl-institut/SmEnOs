@@ -150,28 +150,32 @@ logging.info(energysystem.restore())
 es_df = tpd.EnergySystemDataFrame(energy_system=energysystem,
                                   idx_start_date="2016-01-01 00:00:00",
                                   ixd_date_freq="H")
-es_df.data_frame.describe
 
-# Plotting a combined stacked plot
+## Plotting a combined stacked plot
+#es_df.stackplot("bel", "2016-06-01 00:00:00", "2016-06-8 00:00:00",
+#                title="Electricity bus",
+#                ylabel="Power in MW", xlabel="Date",
+#                linewidth=4,
+#                tick_distance=24)
+
 fig = plt.figure(figsize=(24, 14))
 plt.rc('legend', **{'fontsize': 19})
+plt.rcParams.update({'font.size': 14})
+plt.style.use('grayscale')
 
 ax = fig.add_subplot(2, 1, 1)
-es_df.stackplot(bus_uid="bel", bus_type="el", ax=ax,
-                date_from="2016-06-01 00:00:00",
-                date_to="2016-06-8 00:00:00",
-                title="Electricity bus",
-                ylabel="Power in MW", xlabel="Date",
-                linewidth=4,
-                tick_distance=24)
+es_df.stackplot_part(
+    "bel", "2016-06-01 00:00:00", "2016-06-8 00:00:00", ax,
+    title="Electricity bus",
+    ylabel="Power in MW", xlabel="Date",
+    linewidth=4,
+    tick_distance=24)
 
-ax2 = fig.add_subplot(2, 1, 2)
-es_df.stackplot(bus_uid="bus_distr_heat", bus_type="distr_heat", ax=ax2,
-                date_from="2016-06-01 00:00:00",
-                date_to="2016-06-8 00:00:00",
-                title="District heating bus",
-                ylabel="Power in MW", xlabel="Date",
-                linewidth=4,
-                tick_distance=24)
-
+ax = fig.add_subplot(2, 1, 2)
+es_df.stackplot_part(
+    "bus_distr_heat", "2016-06-01 00:00:00", "2016-06-8 00:00:00",
+    ax, title="District heating bus",
+    ylabel="Power in MW", xlabel="Date",
+    linewidth=4,
+    tick_distance=24)
 plt.show()
