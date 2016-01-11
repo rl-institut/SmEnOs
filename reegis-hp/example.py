@@ -40,7 +40,8 @@ if not os.path.exists(basic_path):
 #data = pd.read_sql_table('test_data', con, 'app_reegis')
 #data.to_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
 data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
-timesteps = [t for t in range(8760)]
+time_index = pd.date_range('1/1/2010', periods=8760, freq='H')
+
 logging.info(list(data.keys()))
 #engine = db.engine()
 #data.to_sql("test_data", engine, schema="app_reegis")
@@ -56,12 +57,14 @@ transformer.Storage.optimization_options.update({'investment': True})
 
 # TODO: other solver libraries should be passable
 simulation = es.Simulation(
-    solver='gurobi', timesteps=timesteps,
+    solver='gurobi', timesteps=range(len(time_index)),
     stream_solver_output=True,
     objective_options={
         'function': predefined_objectives.minimize_cost})
 
-energysystem = es.EnergySystem(simulation=simulation, year=2016)
+
+
+energysystem = es.EnergySystem(simulation=simulation, time_idx=time_index)
 
 # create bus
 bgas = Bus(uid="bgas",
@@ -147,13 +150,21 @@ storage = transformer.Storage(uid='sto_simple',
 logging.info(energysystem.restore())
 
 # Creation of a multi-indexed pandas dataframe
-es_df = tpd.EnergySystemDataFrame(energy_system=energysystem,
-                                  idx_start_date="2016-01-01 00:00:00",
-                                  ixd_date_freq="H")
+es_df = tpd.EnergySystemDataFrame(energy_system=energysystem)
+
+cdict = {'wind': '#5b5bae',
+         'pv': '#ffde32',
+         'sto_simple': '#42c77a',
+         'pp_gas': '#636f6b',
+         'demand': '#ce4aff',
+         'chp_gas': '#567893',
+         'demand_distr_heat': '#830000'
+         }
 
 ## Plotting a combined stacked plot
-#es_df.stackplot("bel", "2016-06-01 00:00:00", "2016-06-8 00:00:00",
-#                title="Electricity bus",
+#es_df.stackplot("bel", date_from="2010-06-01 00:00:00",
+#                date_to="2010-06-8 00:00:00",
+#                title="Electricity bus", autostyle=True,
 #                ylabel="Power in MW", xlabel="Date",
 #                linewidth=4,
 #                tick_distance=24)
@@ -165,17 +176,21 @@ plt.style.use('grayscale')
 
 ax = fig.add_subplot(2, 1, 1)
 es_df.stackplot_part(
-    "bel", "2016-06-01 00:00:00", "2016-06-8 00:00:00", ax,
-    title="Electricity bus",
+    "bel", ax, date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
+    title="Electricity bus", colordict=cdict,
     ylabel="Power in MW", xlabel="Date",
     linewidth=4,
     tick_distance=24)
 
 ax = fig.add_subplot(2, 1, 2)
 es_df.stackplot_part(
-    "bus_distr_heat", "2016-06-01 00:00:00", "2016-06-8 00:00:00",
-    ax, title="District heating bus",
+    "bus_distr_heat", ax, date_from="2010-06-01 00:00:00",
+    date_to="2010-06-8 00:00:00",
+    title="District heating bus", colordict=cdict,
     ylabel="Power in MW", xlabel="Date",
     linewidth=4,
     tick_distance=24)
-plt.show()
+
+fig.savefig(os.path.join('/home/uwe/', 'test' + '.pdf'))
+plt.show(fig)
+plt.close(fig)
