@@ -62,41 +62,70 @@ simulation = es.Simulation(
     objective_options={
         'function': predefined_objectives.minimize_cost})
 
-
-
 energysystem = es.EnergySystem(simulation=simulation, time_idx=time_index)
 
-# create bus
+# Resource buses
 bgas = Bus(uid="bgas",
            type="gas",
            price=70,
            balanced=True,
            excess=False)
 
-# create electricity bus
-bel = Bus(uid="bel",
-          type="el",
-          excess=True)
+boil = Bus(uid="boil",
+           type="oil",
+           price=90,
+           balanced=True,
+           excess=False)
 
-# create heat buses
-district_heat_bus = Bus(uid="bus_distr_heat",
-                        type="distr_heat",
-                        excess=True)
-
-district_heat_demand = sink.Simple(uid="demand_distr_heat",
-                                   inputs=[district_heat_bus],
-                                   val=data['dst0'])
-
-# create commodity object for gas resource
+# Resources
 rgas = source.Commodity(uid='rgas',
                         outputs=[bgas],
                         opex_var=50)
 
-pp_gas = transformer.Simple(uid='pp_gas',
-                            inputs=[bgas], outputs=[district_heat_bus],
-                            opex_var=30, out_max=[10e10], eta=[0.88])
+roil = source.Commodity(uid='roils',
+                        outputs=[boil],
+                        opex_var=50)
 
-# create fixed source object for wind
+# Distribution buses
+bel = Bus(uid="bel",
+          type="el",
+          excess=True)
+
+district_heat_bus = Bus(uid="bus_distr_heat",
+                        type="distr_heat",
+                        excess=True)
+
+oil_heat_bus = Bus(uid="bus_oil_heat",
+                   type="oil_heat",
+                   excess=True)
+
+# Demand
+district_heat_demand = sink.Simple(uid="district_heat",
+                                   inputs=[district_heat_bus],
+                                   val=data['dst0'] * 10)
+
+oil_heat_demand = sink.Simple(uid="oil_heat",
+                              inputs=[oil_heat_bus],
+                              val=data['thoi'] * 30)
+
+elec_demand = sink.Simple(uid="demand_elec", inputs=[bel], val=data['elec'])
+
+
+
+# Transformer
+oil_boiler = transformer.Simple(uid='boiler_oil',
+                                inputs=[boil], outputs=[oil_heat_bus],
+                                opex_var=35, out_max=[10e10], eta=[0.88])
+
+gas_boiler = transformer.Simple(uid='boiler_gas',
+                                inputs=[bgas], outputs=[district_heat_bus],
+                                opex_var=30, out_max=[10e10], eta=[0.88])
+
+chp_gas = transformer.CHP(
+    uid='chp_gas', inputs=[bgas], outputs=[bel, district_heat_bus],
+    opex_var=50, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
+
+# Renewables
 wind = source.FixedSource(uid="wind",
                           outputs=[bel],
                           val=data['rwin'],
@@ -107,7 +136,6 @@ wind = source.FixedSource(uid="wind",
                           lifetime=25,
                           crf=0.08)
 
-# create fixed source object for pv
 pv = source.FixedSource(uid="pv",
                         outputs=[bel],
                         val=data['rpvo'],
@@ -118,15 +146,9 @@ pv = source.FixedSource(uid="pv",
                         lifetime=25,
                         crf=0.08)
 
-# create simple sink object for demand
-demand = sink.Simple(uid="demand", inputs=[bel], val=data['elec'])
 
-# create simple transformer object for gas powerplant
-pp_gas = transformer.CHP(uid='chp_gas',
-                         inputs=[bgas], outputs=[bel, district_heat_bus],
-                         opex_var=50, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
 
-# create storage transformer object for storage
+# Storages
 storage = transformer.Storage(uid='sto_simple',
                               inputs=[bel],
                               outputs=[bel],
@@ -156,9 +178,12 @@ cdict = {'wind': '#5b5bae',
          'pv': '#ffde32',
          'sto_simple': '#42c77a',
          'pp_gas': '#636f6b',
-         'demand': '#ce4aff',
-         'chp_gas': '#567893',
-         'demand_distr_heat': '#830000'
+         'boiler_oil': '#ce4aff',
+         'chp_gas': '#b5aed8',
+         'boiler_gas': '#a17680',
+         'demand_elec': '#830000',
+         'district_heat': '#830000',
+         'oil_heat': '#830000',
          }
 
 ## Plotting a combined stacked plot
@@ -174,19 +199,28 @@ plt.rc('legend', **{'fontsize': 19})
 plt.rcParams.update({'font.size': 14})
 plt.style.use('grayscale')
 
-ax = fig.add_subplot(2, 1, 1)
+ax = fig.add_subplot(3, 1, 1)
 es_df.stackplot_part(
     "bel", ax, date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
-    title="Electricity bus", colordict=cdict,
+    title="", colordict=cdict,
     ylabel="Power in MW", xlabel="Date",
     linewidth=4,
     tick_distance=24)
 
-ax = fig.add_subplot(2, 1, 2)
+ax = fig.add_subplot(3, 1, 2)
 es_df.stackplot_part(
     "bus_distr_heat", ax, date_from="2010-06-01 00:00:00",
     date_to="2010-06-8 00:00:00",
-    title="District heating bus", colordict=cdict,
+    title="", colordict=cdict,
+    ylabel="Power in MW", xlabel="Date",
+    linewidth=4,
+    tick_distance=24)
+
+ax = fig.add_subplot(3, 1, 3)
+es_df.stackplot_part(
+    "bus_oil_heat", ax, date_from="2010-06-01 00:00:00",
+    date_to="2010-06-8 00:00:00",
+    title="", colordict=cdict,
     ylabel="Power in MW", xlabel="Date",
     linewidth=4,
     tick_distance=24)
