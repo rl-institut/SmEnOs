@@ -129,6 +129,14 @@ chp_gas = transformer.CHP(
     uid='chp_gas', inputs=[bgas], outputs=[bel, district_heat_bus],
     opex_var=50, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
 
+heating_rod_distr = transformer.Simple(uid='heatrod_distr',
+                                       inputs=[bel],
+                                       outputs=[district_heat_bus],
+                                       opex_var=0, out_max=[10e10], eta=[0.95])
+
+heating_rod_oil = transformer.Simple(uid='heatrod_oil',
+                                     inputs=[bel], outputs=[oil_heat_bus],
+                                     opex_var=0, out_max=[10e10], eta=[0.95])
 # Renewables
 wind = source.FixedSource(uid="wind",
                           outputs=[bel],
@@ -150,8 +158,6 @@ pv = source.FixedSource(uid="pv",
                         lifetime=25,
                         crf=0.08)
 
-
-
 # Storages
 storage = transformer.Storage(uid='sto_simple',
                               inputs=[bel],
@@ -171,8 +177,8 @@ storage = transformer.Storage(uid='sto_simple',
 # Create, solve and postprocess OptimizationModel instance
 ###############################################################################
 
-#energysystem.optimize()
-#energysystem.dump()
+energysystem.optimize()
+energysystem.dump()
 logging.info(energysystem.restore())
 
 # Creation of a multi-indexed pandas dataframe
@@ -188,15 +194,18 @@ cdict = {'wind': '#5b5bae',
          'demand_elec': '#830000',
          'district_heat': '#830000',
          'oil_heat': '#830000',
+         'boiler_oil': '#272e24',
+         'heatrod_oil': '#7fffc7',
+         'heatrod_distr': '#ff7f7f',
          }
 
-## Plotting a combined stacked plot
-#es_df.stackplot("bel", date_from="2010-06-01 00:00:00",
-#                date_to="2010-06-8 00:00:00",
-#                title="Electricity bus", autostyle=True,
-#                ylabel="Power in MW", xlabel="Date",
-#                linewidth=4,
-#                tick_distance=24)
+# Plotting a combined stacked plot
+es_df.stackplot("bel", date_from="2010-06-01 00:00:00",
+                date_to="2010-06-8 00:00:00",
+                title="Electricity bus", autostyle=True,
+                ylabel="Power in MW", xlabel="Date",
+                linewidth=4,
+                tick_distance=24)
 
 fig = plt.figure(figsize=(24, 14))
 plt.rc('legend', **{'fontsize': 19})
