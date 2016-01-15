@@ -33,18 +33,25 @@ from oemof.core.network.entities.components import transformers as transformer
 
 logger.define_logging()
 
-con = db.connection()
+get_data_from_db = False
+
 basic_path = os.path.join(os.path.expanduser("~"), '.oemof', 'data_files')
 if not os.path.exists(basic_path):
     os.makedirs(basic_path)
-#data = pd.read_sql_table('test_data', con, 'app_reegis')
-#data.to_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
-data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
+
+if get_data_from_db:
+    con = db.engine()
+    data = pd.read_sql_table('test_data', con, 'app_reegis')
+    data.to_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
+else:
+    data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
+
+# set time index
 time_index = pd.date_range('1/1/2010', periods=8760, freq='H')
 
+# temp infos
 logging.info(list(data.keys()))
-#engine = db.engine()
-#data.to_sql("test_data", engine, schema="app_reegis")
+
 ###############################################################################
 # set optimzation options for storage components
 ###############################################################################
@@ -55,9 +62,8 @@ transformer.Storage.optimization_options.update({'investment': True})
 # Create oemof objetc
 ###############################################################################
 
-# TODO: other solver libraries should be passable
 simulation = es.Simulation(
-    solver='gurobi', timesteps=range(len(time_index)),
+    solver='cbc', timesteps=range(len(time_index)),
     stream_solver_output=True,
     objective_options={
         'function': predefined_objectives.minimize_cost})
@@ -102,15 +108,13 @@ oil_heat_bus = Bus(uid="bus_oil_heat",
 # Demand
 district_heat_demand = sink.Simple(uid="district_heat",
                                    inputs=[district_heat_bus],
-                                   val=data['dst0'] * 10)
+                                   val=data['dst0'] * 20)
 
 oil_heat_demand = sink.Simple(uid="oil_heat",
                               inputs=[oil_heat_bus],
                               val=data['thoi'] * 30)
 
 elec_demand = sink.Simple(uid="demand_elec", inputs=[bel], val=data['elec'])
-
-
 
 # Transformer
 oil_boiler = transformer.Simple(uid='boiler_oil',
@@ -197,24 +201,31 @@ cdict = {'wind': '#5b5bae',
 fig = plt.figure(figsize=(24, 14))
 plt.rc('legend', **{'fontsize': 19})
 plt.rcParams.update({'font.size': 14})
-plt.style.use('grayscale')
+plt.style.use('ggplot')
+
+
+plt.subplots_adjust(hspace=0.1, left=0.07, right=0.9)
 
 ax = fig.add_subplot(3, 1, 1)
 es_df.stackplot_part(
     "bel", ax, date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
     title="", colordict=cdict,
-    ylabel="Power in MW", xlabel="Date",
+    ylabel="Power in MW", xlabel="",
     linewidth=4,
     tick_distance=24)
+
+ax.set_xticklabels([])
 
 ax = fig.add_subplot(3, 1, 2)
 es_df.stackplot_part(
     "bus_distr_heat", ax, date_from="2010-06-01 00:00:00",
     date_to="2010-06-8 00:00:00",
     title="", colordict=cdict,
-    ylabel="Power in MW", xlabel="Date",
+    ylabel="Power in MW", xlabel="",
     linewidth=4,
     tick_distance=24)
+
+ax.set_xticklabels([])
 
 ax = fig.add_subplot(3, 1, 3)
 es_df.stackplot_part(
