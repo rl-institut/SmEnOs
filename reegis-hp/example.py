@@ -43,8 +43,9 @@ if get_data_from_db:
     con = db.engine()
     data = pd.read_sql_table('test_data', con, 'app_reegis')
     data.to_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
-else:
-    data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
+
+data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
+data.drop('Unnamed: 0', 1, inplace=True)
 
 # set time index
 time_index = pd.date_range('1/1/2010', periods=8760, freq='H')
@@ -63,8 +64,9 @@ transformer.Storage.optimization_options.update({'investment': True})
 ###############################################################################
 
 simulation = es.Simulation(
-    solver='cbc', timesteps=range(len(time_index)),
+    solver='gurobi', timesteps=range(len(time_index)),
     stream_solver_output=True,
+    debug=True, verbose=True,
     objective_options={
         'function': predefined_objectives.minimize_cost})
 
@@ -73,24 +75,26 @@ energysystem = es.EnergySystem(simulation=simulation, time_idx=time_index)
 # Resource buses
 bgas = Bus(uid="bgas",
            type="gas",
-           price=70,
+           price=0,
            balanced=True,
            excess=False)
 
 boil = Bus(uid="boil",
            type="oil",
-           price=90,
+           price=0,
            balanced=True,
            excess=False)
 
 # Resources
 rgas = source.Commodity(uid='rgas',
                         outputs=[bgas],
-                        opex_var=50)
+                        out_max=[float('+inf')],
+                        opex_var=10e10)
 
 roil = source.Commodity(uid='roils',
                         outputs=[boil],
-                        opex_var=50)
+                        out_max=[float('+inf')],
+                        opex_var=11e10)
 
 # Distribution buses
 bel = Bus(uid="bel",
@@ -119,15 +123,19 @@ elec_demand = sink.Simple(uid="demand_elec", inputs=[bel], val=data['elec'])
 # Transformer
 oil_boiler = transformer.Simple(uid='boiler_oil',
                                 inputs=[boil], outputs=[oil_heat_bus],
-                                opex_var=35, out_max=[10e10], eta=[0.88])
+                                opex_var=0, out_max=[10e10], eta=[0.88])
 
 gas_boiler = transformer.Simple(uid='boiler_gas',
                                 inputs=[bgas], outputs=[district_heat_bus],
-                                opex_var=30, out_max=[10e10], eta=[0.88])
+                                opex_var=0, out_max=[10e10], eta=[0.88])
+                                
+pp_gas = transformer.Simple(uid='pp_gas',
+                            inputs=[bgas], outputs=[bel],
+                            opex_var=0, out_max=[10e10], eta=[0.55])
 
 chp_gas = transformer.CHP(
     uid='chp_gas', inputs=[bgas], outputs=[bel, district_heat_bus],
-    opex_var=50, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
+    opex_var=0, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
 
 heating_rod_distr = transformer.Simple(uid='heatrod_distr',
                                        inputs=[bel],
@@ -166,7 +174,7 @@ storage = transformer.Storage(uid='sto_simple',
                               eta_out=0.8,
                               cap_loss=0.00,
                               opex_fix=35,
-                              opex_var=10e10,
+                              opex_var=50,
                               capex=1000,
                               cap_max=0,
                               cap_initial=0,
@@ -176,7 +184,7 @@ storage = transformer.Storage(uid='sto_simple',
 ###############################################################################
 # Create, solve and postprocess OptimizationModel instance
 ###############################################################################
-
+logging.info('Start optimisation....')
 energysystem.optimize()
 energysystem.dump()
 logging.info(energysystem.restore())
@@ -199,13 +207,13 @@ cdict = {'wind': '#5b5bae',
          'heatrod_distr': '#ff7f7f',
          }
 
-# Plotting a combined stacked plot
-es_df.stackplot("bel", date_from="2010-06-01 00:00:00",
-                date_to="2010-06-8 00:00:00",
-                title="Electricity bus", autostyle=True,
-                ylabel="Power in MW", xlabel="Date",
-                linewidth=4,
-                tick_distance=24)
+## Plotting a combined stacked plot
+#es_df.stackplot("bel", date_from="2010-06-01 00:00:00",
+#                date_to="2010-06-8 00:00:00",
+#                title="Electricity bus", autostyle=True,
+#                ylabel="Power in MW", xlabel="Date",
+#                linewidth=4,
+#                tick_distance=24)
 
 fig = plt.figure(figsize=(24, 14))
 plt.rc('legend', **{'fontsize': 19})
