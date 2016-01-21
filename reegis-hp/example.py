@@ -26,7 +26,6 @@ from oemof.core.network.entities.components import sinks as sink
 from oemof.core.network.entities.components import sources as source
 from oemof.core.network.entities.components import transformers as transformer
 
-
 ###############################################################################
 # read data from csv file
 ###############################################################################
@@ -66,7 +65,7 @@ transformer.Storage.optimization_options.update({'investment': True})
 simulation = es.Simulation(
     solver='gurobi', timesteps=range(len(time_index)),
     stream_solver_output=True,
-    debug=True, verbose=True,
+    debug=False, verbose=True,
     objective_options={
         'function': predefined_objectives.minimize_cost})
 
@@ -128,7 +127,7 @@ oil_boiler = transformer.Simple(uid='boiler_oil',
 gas_boiler = transformer.Simple(uid='boiler_gas',
                                 inputs=[bgas], outputs=[district_heat_bus],
                                 opex_var=0, out_max=[10e10], eta=[0.88])
-                                
+
 pp_gas = transformer.Simple(uid='pp_gas',
                             inputs=[bgas], outputs=[bel],
                             opex_var=0, out_max=[10e10], eta=[0.55])
@@ -142,9 +141,20 @@ heating_rod_distr = transformer.Simple(uid='heatrod_distr',
                                        outputs=[district_heat_bus],
                                        opex_var=0, out_max=[10e10], eta=[0.95])
 
-heating_rod_oil = transformer.Simple(uid='heatrod_oil',
-                                     inputs=[bel], outputs=[oil_heat_bus],
-                                     opex_var=0, out_max=[10e10], eta=[0.95])
+print(oil_heat_demand.val.max())
+fraction = 0.1
+
+
+heating_rod_oil = transformer.Simple(
+    uid='heatrod_oil',
+    inputs=[bel], outputs=[oil_heat_bus],
+    opex_var=0,
+    out_max=[oil_heat_demand.val.max() * fraction],
+    ub_out=[oil_heat_demand.val * fraction],
+    eta=[0.95])
+
+print(heating_rod_oil.ub_out)
+
 # Renewables
 wind = source.FixedSource(uid="wind",
                           outputs=[bel],
