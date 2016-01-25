@@ -29,7 +29,8 @@ from oemof.core.network.entities.components import transformers as transformer
 ###############################################################################
 # read data from csv file
 ###############################################################################
-
+import time
+start = time.time()
 logger.define_logging()
 
 get_data_from_db = False
@@ -57,6 +58,7 @@ logging.info(list(data.keys()))
 ###############################################################################
 
 transformer.Storage.optimization_options.update({'investment': True})
+transformer.Simple.optimization_options.update({'investment': True})
 
 ###############################################################################
 # Create oemof objetc
@@ -122,23 +124,25 @@ elec_demand = sink.Simple(uid="demand_elec", inputs=[bel], val=data['elec'])
 # Transformer
 oil_boiler = transformer.Simple(uid='boiler_oil',
                                 inputs=[boil], outputs=[oil_heat_bus],
+                                capex=5000,
                                 opex_var=0, out_max=[10e10], eta=[0.88])
 
 gas_boiler = transformer.Simple(uid='boiler_gas',
                                 inputs=[bgas], outputs=[district_heat_bus],
+                                capex=5000,
                                 opex_var=0, out_max=[10e10], eta=[0.88])
 
 pp_gas = transformer.Simple(uid='pp_gas',
-                            inputs=[bgas], outputs=[bel],
+                            inputs=[bgas], outputs=[bel], capex=5000,
                             opex_var=0, out_max=[10e10], eta=[0.55])
 
 chp_gas = transformer.CHP(
-    uid='chp_gas', inputs=[bgas], outputs=[bel, district_heat_bus],
+    uid='chp_gas', inputs=[bgas], outputs=[bel, district_heat_bus], capex=5000,
     opex_var=0, out_max=[0.3e10, 0.5e10], eta=[0.3, 0.5])
 
 heating_rod_distr = transformer.Simple(uid='heatrod_distr',
                                        inputs=[bel],
-                                       outputs=[district_heat_bus],
+                                       outputs=[district_heat_bus], capex=5000,
                                        opex_var=0, out_max=[10e10], eta=[0.95])
 
 print(oil_heat_demand.val.max())
@@ -148,9 +152,9 @@ fraction = 0.1
 heating_rod_oil = transformer.Simple(
     uid='heatrod_oil',
     inputs=[bel], outputs=[oil_heat_bus],
-    opex_var=0,
+    opex_var=0, capex=99999,
     out_max=[oil_heat_demand.val.max() * fraction],
-    ub_out=[oil_heat_demand.val * fraction],
+#    ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
 
 print(heating_rod_oil.ub_out)
@@ -195,9 +199,11 @@ storage = transformer.Storage(uid='sto_simple',
 # Create, solve and postprocess OptimizationModel instance
 ###############################################################################
 logging.info('Start optimisation....')
+print(time.time() - start)
 energysystem.optimize()
-energysystem.dump()
-logging.info(energysystem.restore())
+print(time.time() - start)
+#energysystem.dump()
+#logging.info(energysystem.restore())
 
 # Creation of a multi-indexed pandas dataframe
 es_df = tpd.EnergySystemDataFrame(energy_system=energysystem)
