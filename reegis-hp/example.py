@@ -58,7 +58,7 @@ logging.info(list(data.keys()))
 ###############################################################################
 
 transformer.Storage.optimization_options.update({'investment': True})
-transformer.Simple.optimization_options.update({'investment': True})
+#transformer.Simple.optimization_options.update({'investment': True})
 
 ###############################################################################
 # Create oemof objetc
@@ -154,7 +154,7 @@ heating_rod_oil = transformer.Simple(
     inputs=[bel], outputs=[oil_heat_bus],
     opex_var=0, capex=99999,
     out_max=[oil_heat_demand.val.max() * fraction],
-#    ub_out=[oil_heat_demand.val * fraction],
+    ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
 
 print(heating_rod_oil.ub_out)
@@ -246,6 +246,20 @@ es_df.stackplot_part(
     ylabel="Power in MW", xlabel="",
     linewidth=4,
     tick_distance=24)
+
+handles, labels = ax.get_legend_handles_labels()
+separator = 4
+tmp_lab = [x for x in reversed(labels[0:separator])]
+tmp_hand = [x for x in reversed(handles[0:separator])]
+handles = tmp_hand + handles[separator:]
+labels = tmp_lab + labels[separator:]
+
+box = ax.get_position()
+ax.set_position([box.x0, box.y0, box.width * 0.9, box.height])
+
+ax.legend(
+    reversed(handles), reversed(labels), loc='center left',
+    bbox_to_anchor=(1, 0.5), ncol=1, fancybox=True, shadow=True)
 
 ax.set_xticklabels([])
 
