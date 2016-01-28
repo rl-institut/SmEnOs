@@ -145,9 +145,7 @@ heating_rod_distr = transformer.Simple(uid='heatrod_distr',
                                        outputs=[district_heat_bus], capex=5000,
                                        opex_var=0, out_max=[10e10], eta=[0.95])
 
-print(oil_heat_demand.val.max())
 fraction = 0.1
-
 
 heating_rod_oil = transformer.Simple(
     uid='heatrod_oil',
@@ -156,8 +154,6 @@ heating_rod_oil = transformer.Simple(
     out_max=[oil_heat_demand.val.max() * fraction],
     ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
-
-print(heating_rod_oil.ub_out)
 
 # Renewables
 wind = source.FixedSource(uid="wind",
@@ -255,7 +251,7 @@ handles = tmp_hand + handles[separator:]
 labels = tmp_lab + labels[separator:]
 
 box = ax.get_position()
-ax.set_position([box.x0, box.y0, box.width * 0.9, box.height])
+ax.set_position([box.x0, box.y0, box.width * 1, box.height])
 
 ax.legend(
     reversed(handles), reversed(labels), loc='center left',
