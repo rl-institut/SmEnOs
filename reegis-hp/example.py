@@ -14,10 +14,8 @@ import matplotlib.pyplot as plt
 
 # Outputlib
 from oemof.outputlib import to_pandas as tpd
-
-from oemof_pg import db
+import oemof.db as db
 from oemof.tools import logger
-# import solph module to create/process optimization model instance
 from oemof.solph import predefined_objectives as predefined_objectives
 # import oemof base classes to create energy system objects
 from oemof.core import energy_system as es
@@ -155,6 +153,21 @@ heating_rod_oil = transformer.Simple(
     ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
 
+heatstorage_oil = transformer.Storage(
+    uid='heatstorage_oil',
+    inputs=[oil_heat_bus],
+    outputs=[oil_heat_bus],
+    eta_in=1,
+    eta_out=0.8,
+    cap_loss=0.00,
+    opex_fix=35,
+    opex_var=50,
+    capex=1000,
+    cap_max=0,
+    cap_initial=0,
+    c_rate_in=1/6,
+    c_rate_out=1/6)
+
 # Renewables
 wind = source.FixedSource(uid="wind",
                           outputs=[bel],
@@ -196,13 +209,13 @@ storage = transformer.Storage(uid='sto_simple',
 ###############################################################################
 logging.info('Start optimisation....')
 print(time.time() - start)
-energysystem.optimize()
+#energysystem.optimize()
 print(time.time() - start)
 #energysystem.dump()
-#logging.info(energysystem.restore())
+logging.info(energysystem.restore())
 
 # Creation of a multi-indexed pandas dataframe
-es_df = tpd.EnergySystemDataFrame(energy_system=energysystem)
+esplot = tpd.DataFramePlot(energy_system=energysystem)
 
 cdict = {'wind': '#5b5bae',
          'pv': '#ffde32',
@@ -217,6 +230,7 @@ cdict = {'wind': '#5b5bae',
          'boiler_oil': '#272e24',
          'heatrod_oil': '#7fffc7',
          'heatrod_distr': '#ff7f7f',
+         'heatstorage_oil': '#6161e2',
          }
 
 ## Plotting a combined stacked plot
@@ -228,56 +242,44 @@ cdict = {'wind': '#5b5bae',
 #                tick_distance=24)
 
 fig = plt.figure(figsize=(24, 14))
-plt.rc('legend', **{'fontsize': 19})
-plt.rcParams.update({'font.size': 14})
-plt.style.use('ggplot')
+plt.rc('legend', **{'fontsize': 22})
+plt.rcParams.update({'font.size': 24})
+plt.style.use('grayscale')
 
 
 plt.subplots_adjust(hspace=0.1, left=0.07, right=0.9)
 
-ax = fig.add_subplot(3, 1, 1)
-es_df.stackplot_part(
-    "bel", ax, date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
-    title="", colordict=cdict,
-    ylabel="Power in MW", xlabel="",
-    linewidth=4,
-    tick_distance=24)
+handles, labels = esplot.io_plot(
+    "bel", cdict, ax=fig.add_subplot(3, 1, 1),
+    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
+    line_kwa={'linewidth': 4})
 
-handles, labels = ax.get_legend_handles_labels()
-separator = 4
-tmp_lab = [x for x in reversed(labels[0:separator])]
-tmp_hand = [x for x in reversed(handles[0:separator])]
-handles = tmp_hand + handles[separator:]
-labels = tmp_lab + labels[separator:]
+esplot.outside_legend(handles=handles, labels=labels)
+esplot.ax.set_ylabel('Power in MW')
+esplot.ax.set_xlabel('')
+esplot.set_datetime_ticks(tick_distance=24, date_format='%d-%m-%Y')
+esplot.ax.set_xticklabels([])
 
-box = ax.get_position()
-ax.set_position([box.x0, box.y0, box.width * 1, box.height])
+handles, labels = esplot.io_plot(
+    "bus_distr_heat", cdict, ax=fig.add_subplot(3, 1, 2),
+    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
+    line_kwa={'linewidth': 4})
 
-ax.legend(
-    reversed(handles), reversed(labels), loc='center left',
-    bbox_to_anchor=(1, 0.5), ncol=1, fancybox=True, shadow=True)
+esplot.outside_legend(handles=handles, labels=labels)
+esplot.ax.set_ylabel('Power in MW')
+esplot.ax.set_xlabel('')
+esplot.set_datetime_ticks(tick_distance=24, date_format='%d-%m-%Y')
+esplot.ax.set_xticklabels([])
 
-ax.set_xticklabels([])
+handles, labels = esplot.io_plot(
+    "bus_oil_heat", cdict, ax=fig.add_subplot(3, 1, 3),
+    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
+    line_kwa={'linewidth': 4})
 
-ax = fig.add_subplot(3, 1, 2)
-es_df.stackplot_part(
-    "bus_distr_heat", ax, date_from="2010-06-01 00:00:00",
-    date_to="2010-06-8 00:00:00",
-    title="", colordict=cdict,
-    ylabel="Power in MW", xlabel="",
-    linewidth=4,
-    tick_distance=24)
-
-ax.set_xticklabels([])
-
-ax = fig.add_subplot(3, 1, 3)
-es_df.stackplot_part(
-    "bus_oil_heat", ax, date_from="2010-06-01 00:00:00",
-    date_to="2010-06-8 00:00:00",
-    title="", colordict=cdict,
-    ylabel="Power in MW", xlabel="Date",
-    linewidth=4,
-    tick_distance=24)
+esplot.outside_legend(handles=handles, labels=labels)
+esplot.ax.set_ylabel('Power in MW')
+esplot.ax.set_xlabel('Date')
+esplot.set_datetime_ticks(tick_distance=24, date_format='%d-%m-%Y')
 
 fig.savefig(os.path.join('/home/uwe/', 'test' + '.pdf'))
 plt.show(fig)
