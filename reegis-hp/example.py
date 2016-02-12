@@ -153,21 +153,6 @@ heating_rod_oil = transformer.Simple(
     ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
 
-heatstorage_oil = transformer.Storage(
-    uid='heatstorage_oil',
-    inputs=[oil_heat_bus],
-    outputs=[oil_heat_bus],
-    eta_in=1,
-    eta_out=0.8,
-    cap_loss=0.00,
-    opex_fix=35,
-    opex_var=50,
-    capex=1000,
-    cap_max=0,
-    cap_initial=0,
-    c_rate_in=1/6,
-    c_rate_out=1/6)
-
 # Renewables
 wind = source.FixedSource(uid="wind",
                           outputs=[bel],
