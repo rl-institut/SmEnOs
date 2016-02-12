@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 # Outputlib
 from oemof.outputlib import to_pandas as tpd
-import oemof.db as db
+from oemof import db
 from oemof.tools import logger
 from oemof.solph import predefined_objectives as predefined_objectives
 # import oemof base classes to create energy system objects
@@ -23,6 +23,22 @@ from oemof.core.network.entities import Bus
 from oemof.core.network.entities.components import sinks as sink
 from oemof.core.network.entities.components import sources as source
 from oemof.core.network.entities.components import transformers as transformer
+
+
+def fix_labels(labels, replace_underscore=True):
+    r"""Method to remove the 'val' string from the labels. If
+    replace_underscore is True all underscores will be replaced by space.
+
+    This method is supposed to be temporarily.
+    """
+    new_labels = []
+    for lab in labels:
+        lab = lab.replace("(val, ", "")
+        lab = lab.replace(")", "")
+        if replace_underscore:
+            lab = lab.replace("_", " ")
+        new_labels.append(lab)
+    return new_labels
 
 ###############################################################################
 # read data from csv file
@@ -218,18 +234,10 @@ cdict = {'wind': '#5b5bae',
          'heatstorage_oil': '#6161e2',
          }
 
-## Plotting a combined stacked plot
-#es_df.stackplot("bel", date_from="2010-06-01 00:00:00",
-#                date_to="2010-06-8 00:00:00",
-#                title="Electricity bus", autostyle=True,
-#                ylabel="Power in MW", xlabel="Date",
-#                linewidth=4,
-#                tick_distance=24)
-
 fig = plt.figure(figsize=(24, 14))
-plt.rc('legend', **{'fontsize': 22})
+plt.rc('legend', **{'fontsize': 14})
 plt.rcParams.update({'font.size': 24})
-plt.style.use('grayscale')
+plt.style.use('ggplot')
 
 
 plt.subplots_adjust(hspace=0.1, left=0.07, right=0.9)
@@ -239,6 +247,7 @@ handles, labels = esplot.io_plot(
     date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
     line_kwa={'linewidth': 4})
 
+labels = fix_labels(labels)
 esplot.outside_legend(handles=handles, labels=labels)
 esplot.ax.set_ylabel('Power in MW')
 esplot.ax.set_xlabel('')
@@ -250,6 +259,7 @@ handles, labels = esplot.io_plot(
     date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
     line_kwa={'linewidth': 4})
 
+labels = fix_labels(labels)
 esplot.outside_legend(handles=handles, labels=labels)
 esplot.ax.set_ylabel('Power in MW')
 esplot.ax.set_xlabel('')
@@ -261,6 +271,7 @@ handles, labels = esplot.io_plot(
     date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
     line_kwa={'linewidth': 4})
 
+labels = fix_labels(labels)
 esplot.outside_legend(handles=handles, labels=labels)
 esplot.ax.set_ylabel('Power in MW')
 esplot.ax.set_xlabel('Date')
