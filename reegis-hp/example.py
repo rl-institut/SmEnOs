@@ -178,12 +178,12 @@ heating_rod_oil = transformer.Simple(
     ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
 
-post_heating = transformer.PostHeating(
-    uid='postheat_elec',
-    inputs=[bel, storage_heat_bus], outputs=[district_heat_bus],
-    opex_var=0, capex=99999,
-    out_max=[999999],
-    eta=[0.95, 1])
+#post_heating = transformer.PostHeating(
+#    uid='postheat_elec',
+#    inputs=[bel, storage_heat_bus], outputs=[district_heat_bus],
+#    opex_var=0, capex=99999,
+#    out_max=[999999],
+#    eta=[0.95])
 
 # Renewables
 wind = source.FixedSource(uid="wind",
