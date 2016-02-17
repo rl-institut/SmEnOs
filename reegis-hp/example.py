@@ -20,6 +20,7 @@ from oemof.solph import predefined_objectives as predefined_objectives
 # import oemof base classes to create energy system objects
 from oemof.core import energy_system as es
 from oemof.core.network.entities import Bus
+from oemof.core.network.entities.buses import HeatBus
 from oemof.core.network.entities.components import sinks as sink
 from oemof.core.network.entities.components import sources as source
 from oemof.core.network.entities.components import transformers as transformer
@@ -62,7 +63,7 @@ data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
 data.drop('Unnamed: 0', 1, inplace=True)
 
 # set time index
-time_index = pd.date_range('1/1/2010', periods=8760, freq='H')
+time_index = pd.date_range('1/1/2010', periods=2, freq='H')
 
 # temp infos
 logging.info(list(data.keys()))
@@ -81,7 +82,7 @@ transformer.Storage.optimization_options.update({'investment': True})
 simulation = es.Simulation(
     solver='gurobi', timesteps=range(len(time_index)),
     stream_solver_output=True,
-    debug=False, verbose=True,
+    debug=True, verbose=True,
     objective_options={
         'function': predefined_objectives.minimize_cost})
 
@@ -116,9 +117,17 @@ bel = Bus(uid="bel",
           type="el",
           excess=True)
 
-district_heat_bus = Bus(uid="bus_distr_heat",
-                        type="distr_heat",
-                        excess=True)
+district_heat_bus = HeatBus(
+    uid="bus_distr_heat",
+    type="distr_heat",
+    temp_kelvin=393,
+    excess=True)
+
+storage_heat_bus = HeatBus(
+    uid="bus_stor_heat",
+    type="distr_heat",
+    temp_kelvin=370,
+    excess=True)
 
 oil_heat_bus = Bus(uid="bus_oil_heat",
                    type="oil_heat",
@@ -169,6 +178,13 @@ heating_rod_oil = transformer.Simple(
     ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
 
+post_heating = transformer.PostHeating(
+    uid='postheat_elec',
+    inputs=[bel, storage_heat_bus], outputs=[district_heat_bus],
+    opex_var=0, capex=99999,
+    out_max=[999999],
+    eta=[0.95, 1])
+
 # Renewables
 wind = source.FixedSource(uid="wind",
                           outputs=[bel],
@@ -210,9 +226,9 @@ storage = transformer.Storage(uid='sto_simple',
 ###############################################################################
 logging.info('Start optimisation....')
 print(time.time() - start)
-#energysystem.optimize()
+energysystem.optimize()
 print(time.time() - start)
-#energysystem.dump()
+energysystem.dump()
 logging.info(energysystem.restore())
 
 # Creation of a multi-indexed pandas dataframe
@@ -244,7 +260,7 @@ plt.subplots_adjust(hspace=0.1, left=0.07, right=0.9)
 
 handles, labels = esplot.io_plot(
     "bel", cdict, ax=fig.add_subplot(3, 1, 1),
-    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
+#    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
     line_kwa={'linewidth': 4})
 
 labels = fix_labels(labels)
@@ -256,7 +272,7 @@ esplot.ax.set_xticklabels([])
 
 handles, labels = esplot.io_plot(
     "bus_distr_heat", cdict, ax=fig.add_subplot(3, 1, 2),
-    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
+#    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
     line_kwa={'linewidth': 4})
 
 labels = fix_labels(labels)
@@ -268,7 +284,7 @@ esplot.ax.set_xticklabels([])
 
 handles, labels = esplot.io_plot(
     "bus_oil_heat", cdict, ax=fig.add_subplot(3, 1, 3),
-    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
+#    date_from="2010-06-01 00:00:00", date_to="2010-06-8 00:00:00",
     line_kwa={'linewidth': 4})
 
 labels = fix_labels(labels)
@@ -278,5 +294,5 @@ esplot.ax.set_xlabel('Date')
 esplot.set_datetime_ticks(tick_distance=24, date_format='%d-%m-%Y')
 
 fig.savefig(os.path.join('/home/uwe/', 'test' + '.pdf'))
-plt.show(fig)
+#plt.show(fig)
 plt.close(fig)
