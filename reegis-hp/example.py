@@ -10,6 +10,7 @@ General description:
 import os
 import logging
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 
 # Outputlib
@@ -48,6 +49,8 @@ import time
 start = time.time()
 logger.define_logging()
 
+periods=2
+
 get_data_from_db = False
 
 basic_path = os.path.join(os.path.expanduser("~"), '.oemof', 'data_files')
@@ -63,7 +66,7 @@ data = pd.read_csv(os.path.join(basic_path, "reegis_example.csv"), sep=",")
 data.drop('Unnamed: 0', 1, inplace=True)
 
 # set time index
-time_index = pd.date_range('1/1/2010', periods=2, freq='H')
+time_index = pd.date_range('1/1/2010', periods=periods, freq='H')
 
 # temp infos
 logging.info(list(data.keys()))
@@ -120,7 +123,7 @@ bel = Bus(uid="bel",
 district_heat_bus = HeatBus(
     uid="bus_distr_heat",
     type="distr_heat",
-    temp_kelvin=393,
+    temp_kelvin=np.ones(periods) * 368 + np.random.rand(periods) * 20,
     excess=True)
 
 storage_heat_bus = HeatBus(
@@ -178,12 +181,12 @@ heating_rod_oil = transformer.Simple(
     ub_out=[oil_heat_demand.val * fraction],
     eta=[0.95])
 
-#post_heating = transformer.PostHeating(
-#    uid='postheat_elec',
-#    inputs=[bel, storage_heat_bus], outputs=[district_heat_bus],
-#    opex_var=0, capex=99999,
-#    out_max=[999999],
-#    eta=[0.95])
+post_heating = transformer.PostHeating(
+    uid='postheat_elec',
+    inputs=[bel, storage_heat_bus], outputs=[district_heat_bus],
+    opex_var=0, capex=99999,
+    out_max=[999999],
+    eta=[0.95])
 
 # Renewables
 wind = source.FixedSource(uid="wind",
