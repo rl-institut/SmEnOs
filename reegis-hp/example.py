@@ -123,14 +123,20 @@ bel = Bus(uid="bel",
 district_heat_bus = HeatBus(
     uid="bus_distr_heat",
     type="distr_heat",
-    temp_kelvin=np.ones(periods) * 368 + np.random.rand(periods) * 20,
+    temperature=np.ones(periods) * 368 + (
+        np.random.rand(periods) * 20).round(0),
+    re_temperature=np.ones(periods) * 340,
     excess=True)
 
 storage_heat_bus = HeatBus(
     uid="bus_stor_heat",
     type="distr_heat",
-    temp_kelvin=370,
+    temperature=370,
     excess=True)
+
+print(storage_heat_bus.temperature)
+print(district_heat_bus.temperature)
+print(district_heat_bus.re_temperature)
 
 oil_heat_bus = Bus(uid="bus_oil_heat",
                    type="oil_heat",
