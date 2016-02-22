@@ -191,8 +191,9 @@ post_heating = transformer.PostHeating(
     uid='postheat_elec',
     inputs=[bel, storage_heat_bus], outputs=[district_heat_bus],
     opex_var=0, capex=99999,
-    out_max=[999999],
-    eta=[0.95])
+    out_max=[999993],
+    in_max=[9999, 9999],
+    eta=[0.95, 1])
 
 # Renewables
 wind = source.FixedSource(uid="wind",
