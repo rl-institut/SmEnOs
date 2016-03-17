@@ -224,9 +224,9 @@ for region in SmEnOsReg.regions:
     # Get power plants from database and write them into a DataFrame
     pps_df = hls.get_opsd_pps(conn, region.geom)
     print(pps_df)
-    test = pps_df.query('cap_el_uba == NaN')
+    #test = pps_df.query('cap_el_uba == NaN')
     #test2 = sum(test['cap_el'])
-    print(test)
+    #print(test)
     #print(test2)
     ########################################################TEST!!!!!
 

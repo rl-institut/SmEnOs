@@ -288,6 +288,10 @@ def create_opsd_summed_objects(esystem, region, pp, bclass, chp_faktor, **kwargs
     'creates entities for each type generation'
     typeofgen = kwargs.get('typeofgen')
     
+    # replace NaN with 0
+    mask = pd.isnull(pp)
+    pp = pp.where(~mask, other=0)
+    
     capacity = {}  
     capacity_chp_el = {}
     capacity_chp_th = {}
