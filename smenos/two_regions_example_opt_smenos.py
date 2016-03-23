@@ -203,9 +203,12 @@ for region in SmEnOsReg.regions:
             filename='50Hertz2010.csv',
             annual_elec_demand = annual_el_dem[region.name]['el_all'])
 #print(demand.val)
-print(SmEnOsReg.regions)
+
 #########################################################
 #######################################################
+
+ror_cap = hls.get_small_runofriver_pps(conn)
+pumped_storage = hls.get_pumped_storage_pps(conn)
 
 # Create entity objects for each region
 for region in SmEnOsReg.regions:
@@ -223,16 +226,18 @@ for region in SmEnOsReg.regions:
 
     # Get power plants from database and write them into a DataFrame
     pps_df = hls.get_opsd_pps(conn, region.geom)
-    print(pps_df)
-    #test = pps_df.query('cap_el_uba == NaN')
-    #test2 = sum(test['cap_el'])
-    #print(test)
-    #print(test2)
+
     ########################################################TEST!!!!!
 
     # TODO: Summerize power plants of the same type
     hls.create_opsd_summed_objects(SmEnOsReg, region, pps_df, bclass=Bus,
-                                   chp_faktor=float(0.2), typeofgen=typeofgen_global)
+                  chp_faktor=float(0.2), 
+                    typeofgen=typeofgen_global, 
+                    ror_cap=ror_cap, 
+                    pumped_storage=pumped_storage,
+                    filename_hydro='50Hertz2010.csv' )
+                    
+    print(region.entities)
 # alt:
 #    for pwrp in pps_df.iterrows():
 #        if pwrp[1].type != 'pumped_storage' and \

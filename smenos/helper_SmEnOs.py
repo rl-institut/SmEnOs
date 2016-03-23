@@ -95,6 +95,8 @@ def get_parameters():
 	eta_elec['waste'] = 0.40
 	eta_elec['biomass'] = 0.40
 	eta_elec['pumped_storage'] = 0.40
+	eta_elec['pumped_storage_in'] = 0.98
+	eta_elec['pumped_storage_out'] = 0.98 
 
 	eta_th = {}
 	eta_th['lignite'] = 0.35
@@ -165,6 +167,26 @@ def get_opsd_pps(conn, geometry):
         'cap_el', 'cap_el_uba', 'cap_th_uba', 'efficiency'])
     df['type'] = df['type'].apply(translator)
     return df
+	
+def get_small_runofriver_pps(conn):
+    sql = """
+        SELECT state_short, capacity
+        FROM oemof_test.runofriver_under10mw as ror
+        """
+    df = pd.DataFrame(
+        conn.execute(sql).fetchall(), columns=['state_short', 'capacity'])
+    return df
+    
+def get_pumped_storage_pps(conn):
+    sql = """
+        SELECT state_short, power_mw, capacity_mwh 
+        FROM oemof_test.pumped_storage_germany as pspp
+        """
+    df = pd.DataFrame(
+        conn.execute(sql).fetchall(), columns=['state_short', 'power_mw', 
+        'capacity_mwh'])
+    return df
+    
     
 def entity_exists(esystem, uid):
     return len([obj for obj in esystem.entities if obj.uid == uid]) > 0
@@ -287,10 +309,15 @@ def create_opsd_entity_objects(esystem, region, pp, bclass, **kwargs): #bclass =
 def create_opsd_summed_objects(esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
     'creates entities for each type generation'
     typeofgen = kwargs.get('typeofgen')
+    ror_cap = kwargs.get('ror_cap')
+    pumped_storage = kwargs.get('pumped_storage')
+    
     
     # replace NaN with 0
     mask = pd.isnull(pp)
     pp = pp.where(~mask, other=0)
+    #print('replaced nans/Nones')
+    #print(pp)
     
     capacity = {}  
     capacity_chp_el = {}
@@ -299,27 +326,29 @@ def create_opsd_summed_objects(esystem, region, pp, bclass, chp_faktor, **kwargs
     for typ in typeofgen:
         capacity[typ] = sum(pp[pp['type'].isin([typ])][pp['status'].isin([
         'operating'])][pp['chp'].isin(['no'])]['cap_el'])
+		# capacity for simple transformer (chp = no)
         
         capacity_chp_el[typ] = sum(pp[pp['type'].isin([typ])][pp['status'].isin([
         'operating'])][pp['chp'].isin(['yes'])]['cap_el_uba']) + sum(
         pp[pp['type'].isin([typ])][pp['status'].isin([
         'operating'])][pp['chp'].isin(['yes'])][pp['cap_th_uba'].isin(
-        ['none'])]['cap_el'])        
+        [0])]['cap_el'])  
+		# el capacity for chp transformer (cap_el_uba + cap_el(where cap_th_uba=0 and chp=yes))
         
         capacity_chp_th[typ] = float(sum(pp[pp['type'].isin([typ])][pp['status'].isin([
         'operating'])][pp['chp'].isin(['yes'])]['cap_th_uba'])) + float(sum( 
         pp[pp['type'].isin([typ])][pp['status'].isin([
         'operating'])][pp['chp'].isin(['yes'])][pp['cap_th_uba'].isin(
-        ['none'])]['cap_el'])*chp_faktor)
+        [0])]['cap_el'])*chp_faktor)
+		# th capacity for chp transformer (cap_th_uba + cap_el*Faktor (where cap_th_uba=0 and chp=yes))
         
         efficiency[typ] = np.mean(pp[pp['type'].isin([typ])][pp['status'].isin([
         'operating'])][pp['chp'].isin(['no'])]['efficiency'])
+		# efficiency only for simple transformer
         
-        print(typ, capacity[typ])  
-        print(capacity_chp_el[typ])  
-        print(capacity_chp_th[typ])  
-        print(efficiency[typ])
-
+        print(capacity)  
+        print(capacity_chp_el)
+        print(capacity_chp_th)
 
         transformer.CHP(
 			uid=('transformer', region.name, typ, 'chp'),
@@ -330,7 +359,7 @@ def create_opsd_summed_objects(esystem, region, pp, bclass, chp_faktor, **kwargs
 					[obj for obj in region.entities if obj.uid == (
 					'bus', region.name, 'dh')][0]], # speist auf strombus und fernwärmebus
 			in_max=[None],
-                out_max=[[float(capacity_chp_el[typ])], [float(capacity_chp_th[typ])]],
+                out_max=[float(capacity_chp_el[typ]), float(capacity_chp_th[typ])],
 			eta=[eta_elec[typ], eta_th[typ]],
 			opex_var=opex_var[typ],
 			regions=[region])
@@ -347,58 +376,53 @@ def create_opsd_summed_objects(esystem, region, pp, bclass, chp_faktor, **kwargs
 			opex_var=opex_var[typ],
 			regions=[region])
    
+    typ = 'pumped_storage'
+    power=sum(pumped_storage[pumped_storage[
+            'state_short'].isin([region.name])]['power_mw'])
+    if power > 0:
+        transformer.Storage(
+            uid=('Storage', region.name, typ),
+            inputs=[obj for obj in esystem.entities if obj.uid == (
+               'bus', region.name, 'elec')], # nimmt von strombus
+            outputs=[obj for obj in region.entities if obj.uid == (
+               'bus', region.name, 'elec')],  # speist auf strombus 
+            cap_max=sum(pumped_storage[pumped_storage[
+            'state_short'].isin([region.name])]['capacity_mwh']),
+            out_max=power,
+            in_max=power,
+            eta_in=eta_elec['pumped_storage_in'], ####anlegen!!
+            eta_out=eta_elec['pumped_storage_out'],   ####anlegen!!!
+            opex_var=opex_var[typ],
+            regions=[region])
+			
+    typ = 'run_of_river'
+    capacity[typ] = sum(pp[pp['type'].isin([typ])][
+       pp['status'].isin(['operating'])]['cap_el']) + sum(ror_cap[ror_cap[
+       'state_short'].isin([region.name])]['capacity'])
        
- #   elif pp[1].type =='pumped_storage': ##parameter überprüfen!!!
- #       transformer.storage(
-	#		uid=('Storage', region.name, pp[1].type),
-#			inputs=[obj for obj in esystem.entities if obj.uid == (
-#					'bus', location, 'elec')], # nimmt von strombus
-#			outputs=[obj for obj in region.entities if obj.uid == (
-#					'bus', region.name, 'elec')],  # speist auf strombus 
-#			cap_max=[float(pp[1].cap_el)],
-#			out_max=[float(pp[1].cap_el)], # inst. Leistung!
-#			eta_in=[eta_elec['pumped_storage_in']], ####anlegen!!
-#			eta_out=[eta_elec['pumped_storage_out']],   ####anlegen!!!
-#			opex_var=opex_var[pp[1].type],
-#			regions=[region])
+       #int(ror_cap.query('state_short == '+ region.name)['capacity'])
+		# capacity for pumped storage 
+    print(capacity[typ])
+    if capacity[typ] is not 0:
+        source.FixedSource(
+            uid=('FixedSrc', region.name, 'hydro'),
+            outputs=[obj for obj in region.entities if obj.uid == (
+               'bus', region.name, 'elec')],  # speist auf strombus 
+            val=scale_profile_to_capacity(
+                    filename=kwargs.get('filename_hydro'),
+                    capacity=capacity[typ]),
+            out_max=[capacity[typ]], # inst. Leistung!
+            regions=[region])
 #			
  #                              ##scale hydropower profile (csv) 
   #                             ###with capacity from db as fixed source
-  #  elif pp[1].type =='hydro_power':
-#        source.FixedSource(
-#			uid=('FixedSrc', region.name, 'hydro'),
- #               outputs=[obj for obj in region.entities if obj.uid == (
-  #              'bus', region.name, 'elec')],
-	#		val=scale_profile_to_capacity(
-	#					path=kwargs.get('path_hydro'),
-#						filename=kwargs.get('filename_hydro'),
-#						capacity=pp[1].cap_el),                     
- #               out_max=[float(pp[1].cap_el)],
-  #              regions=[region])
-	#
-			
-	#weitere Ausnahmen:	 Wasserkraft? 
-			
-		#	    transformer.Storage(uid=('sto_simple', region.name, 'elec'),
-        #                inputs=bel,
-        #                outputs=bel,
-        #                eta_in=1,
-        #                eta_out=0.8,
-        #                cap_loss=0.00,
-        #                opex_fix=35,
-        #                opex_var=0,
-        #                capex=1000,
-        #                cap_max=10 ** 12,
-        #                cap_initial=0,
-        #                c_rate_in=1/6,	????
-        #                c_rate_out=1/6)	?????
-	  ###create transformer.storage
+ 
 
    
-def scale_profile_to_capacity(path, filename, capacity):
+def scale_profile_to_capacity(filename, capacity):
 	profile = pd.read_csv(filename,
                                    sep=",")
-	generation_profile = (profile /
-                            profile.max() *
-                            capacity)
+	generation_profile = (profile.values /
+                            np.amax(profile.values) *
+                            float(capacity))
 	return generation_profile
