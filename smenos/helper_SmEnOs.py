@@ -301,14 +301,13 @@ esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
     typeofgen = kwargs.get('typeofgen')
     ror_cap = kwargs.get('ror_cap')
     pumped_storage = kwargs.get('pumped_storage')
-    print(ror_cap)
-    
-    
+    print('Anfang Funktion')
+
     # replace NaN with 0
     mask = pd.isnull(pp)
     pp = pp.where(~mask, other=0)
-    #print('replaced nans/Nones')
-    #print(pp)
+#    print('replaced nans/Nones')
+#    print(pp)
     
     capacity = {}  
     capacity_chp_el = {}
@@ -339,11 +338,12 @@ esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
         'status'].isin(['operating'])][pp['chp'].isin(['no'])]['efficiency'])
 		# efficiency only for simple transformer
         
-        print(capacity)  
-        print(capacity_chp_el)
-        print(capacity_chp_th)
+        #print(capacity[typ])  
+        #print(capacity_chp_el)
+        #print(capacity_chp_th)
 
-        transformer.CHP(
+        if capacity_chp_el[typ] > 0:
+            transformer.CHP(
 			uid=('transformer', region.name, typ, 'chp'),
 			inputs=[obj for obj in esystem.entities if obj.uid == (
 				'bus', 'global', typ)], # nimmt von ressourcenbus
@@ -359,7 +359,8 @@ esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
 			opex_var=opex_var[typ],
 			regions=[region])
    
-        transformer.Simple(
+        if capacity[typ] > 0:
+            transformer.Simple(
 			uid=('transformer', region.name, typ),
 			inputs=[obj for obj in esystem.entities if obj.uid == (
 				'bus', 'global', typ)], # nimmt von ressourcenbus
@@ -381,23 +382,23 @@ esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
                'bus', region.name, 'elec')], # nimmt von strombus
             outputs=[obj for obj in region.entities if obj.uid == (
                'bus', region.name, 'elec')],  # speist auf strombus 
-            cap_max=sum(pumped_storage[pumped_storage[
-            'state_short'].isin([region.name])]['capacity_mwh']),
-            out_max=power,
-            in_max=power,
+            cap_max=float(sum(pumped_storage[pumped_storage[
+            'state_short'].isin([region.name])]['capacity_mwh'])),
+            out_max=[power],
+            in_max=[power],
             eta_in=eta_elec['pumped_storage_in'], ####anlegen!!
             eta_out=eta_elec['pumped_storage_out'],   ####anlegen!!!
             opex_var=opex_var[typ],
             regions=[region])
 			
     typ = 'run_of_river'
-    energy = ror_cap[ror_cap['state_short'].isin([region.name])]['energy']
+    energy = sum(ror_cap[ror_cap['state_short'].isin([region.name])]['energy'])
     capacity[typ] = sum(pp[pp['type'].isin([typ])][
        pp['status'].isin(['operating'])]['cap_el']) + sum(ror_cap[ror_cap[
        'state_short'].isin([region.name])]['capacity'])
        
-    print(capacity[typ])
-    if energy is not 0:
+    #print(capacity[typ])
+    if energy > 0:
         source.FixedSource(
             uid=('FixedSrc', region.name, 'hydro'),
             outputs=[obj for obj in region.entities if obj.uid == (

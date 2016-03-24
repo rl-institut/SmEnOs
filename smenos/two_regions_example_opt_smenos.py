@@ -190,10 +190,10 @@ for region in SmEnOsReg.regions:
             method='scale_profile_csv',
             year=year,
             path='',
-            filename='50Hertz2010.csv',
+            filename='50Hertz2010_x.csv',
             annual_elec_demand = annual_el_dem[region.name]['el_all'])
-#print(demand.val)
-
+#print(list(demand.val['load']))
+print(demand.val)
 #########################################################
 #######################################################
 
@@ -204,6 +204,7 @@ pumped_storage = hls.get_pumped_storage_pps(conn)
 for region in SmEnOsReg.regions:
     logging.info('Processing region: {0} ({1})'.format(
         region.name, region.code))
+    print('get Datafrom db')
 
 # ##achtung: kontrollieren!!!! absolute oder normierte Zeitreihen????
 ## todo: Problem mit Erdwärme??!!
@@ -212,6 +213,7 @@ for region in SmEnOsReg.regions:
 
     # Get power plants from database and write them into a DataFrame
     pps_df = hls.get_opsd_pps(conn, region.geom)
+    print('got data from db')
 
     hls.create_opsd_summed_objects(SmEnOsReg, region, pps_df, bclass=Bus,
                   chp_faktor=float(0.2), 
@@ -219,9 +221,8 @@ for region in SmEnOsReg.regions:
                     ror_cap=ror_cap, 
                     pumped_storage=pumped_storage,
                     filename_hydro='50Hertz2010.csv' )
-                    
-    print(region.entities)
-
+    
+               
 
 # Connect the electrical buses of federal states
 
@@ -265,6 +266,11 @@ for bus in buses:
         logging.debug('Bus {0} has no connections and will be deleted.'.format(
             bus.type))
         SmEnOsReg.entities.remove(bus)
+        
+for obj in SmEnOsReg.entities:
+        print(obj.uid)
+        if obj.uid[0] == 'transformer' or obj.uid[0] == 'FixedSrc':
+            print(obj.out_max)
 
 for entity in SmEnOsReg.entities:
     entity.uid = str(entity.uid)
