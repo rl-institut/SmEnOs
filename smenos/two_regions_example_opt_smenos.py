@@ -4,13 +4,9 @@
 ## todo: opex_var aufteilen???
 ## in_max bei Pumpspeicher - wo kommt der Wirkungsgrad rein?
 ## Zeitreihen Wasserkraft
-## demandzeitreihen strom erstellen! achtung: standardlastprofile nicht gut, 
-##      lieber 50 hertz oder entsoe
 ## umrechnen der wärmeverbräuche in installierte Leistungen der Heizungen
 ##    Faktor für Überdimensionierung + Faktor für Gleichzeitigkeit?
 ## prüfen bei feedinlib: absolute Zahlen oder normierte Zeitreihen???
-## changed: pp[1].chp = "yes" or "no"
-## pp[1].cap_el / cap_th
 ## braunkohlekraftwerk Dessau: 150 MW wärme (bis jetzt in Datenbank nur strom, 
 ##                          nicht wärme)
 
@@ -70,7 +66,8 @@ site = {'module_name': 'Yingli_YL210__2008__E__',
             0: 'ENERCON E 126 7500'},
         }
 	
-co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex, price = hls.get_parameters()
+co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex, \
+                                                price = hls.get_parameters()
 #print(eta_elec)	
 
 # sources for power generation on global buses
@@ -127,17 +124,10 @@ SmEnOsReg.regions.append(es.Region(
 for typ in typeofgen_global:
     Bus(uid=('bus', 'global', typ), type=typ, price=price[typ],
     excess=False, regions=SmEnOsReg.regions ) # sum_out_limit=10e10
-#Bus(uid=('bus', 'global', 'lignite'), type='lignite', price=0,
-#    excess=False, regions=SmEnOsReg.regions )
-#Bus(uid=('bus', 'global', 'mineral_oil'), type='mineral_oil', price=0,
-#    excess=False, regions=SmEnOsReg.regions )
-#Bus(uid=('bus', 'global', 'natural_gas'), type='natural_gas', price=0,
-#    excess=False, regions=SmEnOsReg.regions )
-#Bus(uid=('bus', 'global', 'waste'), type='waste', price=0,
-#    excess=False, regions=SmEnOsReg.regions )
 
 
-####################rausschmeißen, wenn es über ausgelagerte Funktion läuft!!!
+
+####################
 demands_df = hls.get_dec_heat_demand(conn)
 #print (demands_df)
 
@@ -215,10 +205,6 @@ for region in SmEnOsReg.regions:
     logging.info('Processing region: {0} ({1})'.format(
         region.name, region.code))
 
-    # Create source object 
-	#################################
-	#################################
-
 # ##achtung: kontrollieren!!!! absolute oder normierte Zeitreihen????
 ## todo: Problem mit Erdwärme??!!
 #    feedin_pg.Feedin().create_fixed_source(
@@ -227,9 +213,6 @@ for region in SmEnOsReg.regions:
     # Get power plants from database and write them into a DataFrame
     pps_df = hls.get_opsd_pps(conn, region.geom)
 
-    ########################################################TEST!!!!!
-
-    # TODO: Summerize power plants of the same type
     hls.create_opsd_summed_objects(SmEnOsReg, region, pps_df, bclass=Bus,
                   chp_faktor=float(0.2), 
                     typeofgen=typeofgen_global, 
@@ -238,41 +221,7 @@ for region in SmEnOsReg.regions:
                     filename_hydro='50Hertz2010.csv' )
                     
     print(region.entities)
-# alt:
-#    for pwrp in pps_df.iterrows():
-#        if pwrp[1].type != 'pumped_storage' and \
-#        pwrp[1].type != 'biomass' and \
-#        pwrp[1].status == 'operating':
-#            hls.create_opsd_entity_objects(SmEnOsReg, region, pwrp,
-#                bclass=Bus, filename_hydro='50Hertz2010.csv')
-                
-    #print(region.entities)
-                    
-                    
-  #  for pwrp in pps_df.iterrows():
-  #      if pwrp[1].type != 'pumped_storage':
-  #          hls.create_kwdb_entity_objects(SmEnOsReg, region, pwrp,
-  #                  tclass=transformer.Simple, bclass=Bus, path_hydro='',
-#					filename_hydro='todo.csv')
 
-
-    # create storage transformer object for storage
-#    transformer.Storage.optimization_options.update({'investment': True})
- #   bel = [obj for obj in SmEnOsReg.entities
- #          if obj.uid == ('bus', region.name, 'elec')]
- #   transformer.Storage(uid=('sto_simple', region.name, 'elec'),
- #                       inputs=bel,
- #                       outputs=bel,
- #                       eta_in=1,
- #                       eta_out=0.8,
- #                       cap_loss=0.00,
- #                       opex_fix=35,
- #                       opex_var=0,
- #                       capex=1000,
- #                       cap_max=10 ** 12,
- #                       cap_initial=0,
- #                       c_rate_in=1/6,
- #                       c_rate_out=1/6)
 
 # Connect the electrical buses of federal states
 
@@ -306,11 +255,6 @@ SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
 SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
                       eta=0.997, transport_class=transport.Simple)                      
                       
-#pv_lk_wtb = ([obj for obj in SmEnOsReg.entities if obj.uid == (
-#    'FixedSrc', 'Landkreis Wittenberg', 'pv_pwr')][0])
-#
-# Multiply PV with 25
-#pv_lk_wtb.val = pv_lk_wtb.val * 25
 
 # Remove orphan buses
 buses = [obj for obj in SmEnOsReg.entities if isinstance(obj, Bus)]
