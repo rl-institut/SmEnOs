@@ -171,7 +171,7 @@ def get_opsd_pps(conn, geometry):
 	
 def get_small_runofriver_pps(conn):
     sql = """
-        SELECT state_short, capacity, generated_energy_2010
+        SELECT state_short, capacity, energy_average
         FROM oemof_test.runofriver_under10mw as ror
         """
     df = pd.DataFrame(
@@ -301,6 +301,7 @@ esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
     typeofgen = kwargs.get('typeofgen')
     ror_cap = kwargs.get('ror_cap')
     pumped_storage = kwargs.get('pumped_storage')
+    print(ror_cap)
     
     
     # replace NaN with 0
@@ -396,7 +397,7 @@ esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
        'state_short'].isin([region.name])]['capacity'])
        
     print(capacity[typ])
-    if capacity[typ] is not 0:
+    if energy is not 0:
         source.FixedSource(
             uid=('FixedSrc', region.name, 'hydro'),
             outputs=[obj for obj in region.entities if obj.uid == (
@@ -406,13 +407,6 @@ esystem, region, pp, bclass, chp_faktor, **kwargs): #bclass = Bus
                     energy=energy),
             out_max=[capacity[typ]], # inst. Leistung!
             regions=[region])
-            
-    val=scale_profile_to_capacity(
-                    filename=kwargs.get('filename_hydro'),
-                    capacity=capacity[typ])
-    print('erzeugte Energie Wasserkraft:')
-    print(sum(val))
-
    
 def scale_profile_to_capacity(filename, capacity):
 	profile = pd.read_csv(filename,
