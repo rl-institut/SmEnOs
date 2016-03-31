@@ -7,7 +7,7 @@
 ## umrechnen der wärmeverbräuche in installierte Leistungen der Heizungen
 ##    Faktor für Überdimensionierung + Faktor für Gleichzeitigkeit?
 ## prüfen bei feedinlib: absolute Zahlen oder normierte Zeitreihen???
-## braunkohlekraftwerk Dessau: 150 MW wärme (bis jetzt in Datenbank nur strom, 
+## braunkohlekraftwerk Dessau: 150 MW wärme (bis jetzt in Datenbank nur strom,
 ##                          nicht wärme)
 
 
@@ -82,7 +82,7 @@ conn = db.connection()
 
 # Create a simulation object
 simulation = es.Simulation(
-    timesteps=range(len(time_index)), verbose=True, solver='glpk', 
+    timesteps=range(len(time_index)), verbose=True, solver='glpk',
     stream_solver_output=True,
     objective_options={'function': predefined_objectives.minimize_cost})
 
@@ -161,16 +161,16 @@ for region in SmEnOsReg.regions:
     for sec in ['el_I','el_GHD','el_HH']:
         annual_el_dem[region.name][sec] = int(demands_df.query(
         'sector == '+str(sectorcode[sec])+' and fstate =='+ dbcode[
-        region.name])['demands']) 
-    # sum up sectors demands for each federal state:    
+        region.name])['demands'])
+    # sum up sectors demands for each federal state:
     annual_el_dem[region.name]['el_all'] = (annual_el_dem[
         region.name]['el_I']) + (annual_el_dem[region.name][
         'el_GHD']) + (annual_el_dem[region.name]['el_HH'])
-        
-    # One elecbus for each region.#    
+
+    # One elecbus for each region.#
     Bus(uid=('bus', region.name, 'elec'), type='elec', price=60,
             regions=[region], excess=False)
-    # One dh-bus for each region.#  (district heating)  
+    # One dh-bus for each region.#  (district heating)
     Bus(uid=('bus', region.name, 'dh'), type='dh', price=60,
             regions=[region], excess=False)
 
@@ -194,6 +194,22 @@ for region in SmEnOsReg.regions:
             annual_elec_demand = annual_el_dem[region.name]['el_all'])
 #print(list(demand.val['load']))
 print(demand.val)
+
+#annual_heat_dem = {}
+#for region in SmEnOsReg.regions:
+    #annual_heat_dem[region.name] = {}
+    #for sec in ['th_I', 'th_GHD', 'th_HH']:
+        #annual_heat_dem[region.name][sec] = {}
+        #annual_heat_dem_tmp = list(demands_df.query(
+            #'sector == ' + str(sectorcode[sec]) + ' and fstate ==' + dbcode[
+            #region.name])['demands'])[0]
+        #print (annual_heat_dem_tmp)
+        #for ressource in list(annual_heat_dem_tmp.keys()):
+            #print (ressource)
+            #annual_heat_dem[region.name][sec][ressource] = \
+                #annual_heat_dem_tmp[ressource]
+#print (annual_heat_dem)
+
 #########################################################
 #######################################################
 
@@ -216,13 +232,13 @@ for region in SmEnOsReg.regions:
     print('got data from db')
 
     hls.create_opsd_summed_objects(SmEnOsReg, region, pps_df, bclass=Bus,
-                  chp_faktor=float(0.2), 
-                    typeofgen=typeofgen_global, 
-                    ror_cap=ror_cap, 
+                  chp_faktor=float(0.2),
+                    typeofgen=typeofgen_global,
+                    ror_cap=ror_cap,
                     pumped_storage=pumped_storage,
                     filename_hydro='50Hertz2010.csv' )
-    
-               
+
+
 
 # Connect the electrical buses of federal states
 
@@ -237,14 +253,14 @@ ebusMV = [obj for obj in SmEnOsReg.entities if obj.uid == (
 ebusTH = [obj for obj in SmEnOsReg.entities if obj.uid == (
     'bus', 'TH', 'elec')][0]
 ebusSN = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    'bus', 'SN', 'elec')][0]    
-    
+    'bus', 'SN', 'elec')][0]
+
 SmEnOsReg.connect(ebusBB, ebusST, in_max=5880, out_max=5880,
                       eta=0.997, transport_class=transport.Simple)
 SmEnOsReg.connect(ebusBB, ebusBE, in_max=3000, out_max=3000,
                       eta=0.997, transport_class=transport.Simple)
 SmEnOsReg.connect(ebusBB, ebusSN, in_max=5040, out_max=5040,
-                      eta=0.997, transport_class=transport.Simple)                     
+                      eta=0.997, transport_class=transport.Simple)
 SmEnOsReg.connect(ebusBB, ebusMV, in_max=3640, out_max=3640,
                       eta=0.997, transport_class=transport.Simple)
 SmEnOsReg.connect(ebusMV, ebusST, in_max=1960, out_max=1960,
@@ -254,8 +270,8 @@ SmEnOsReg.connect(ebusTH, ebusST, in_max=1680, out_max=1680,
 SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
                       eta=0.997, transport_class=transport.Simple)
 SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
-                      eta=0.997, transport_class=transport.Simple)                      
-                      
+                      eta=0.997, transport_class=transport.Simple)
+
 
 # Remove orphan buses
 buses = [obj for obj in SmEnOsReg.entities if isinstance(obj, Bus)]
@@ -266,15 +282,16 @@ for bus in buses:
         logging.debug('Bus {0} has no connections and will be deleted.'.format(
             bus.type))
         SmEnOsReg.entities.remove(bus)
-        
+
 for obj in SmEnOsReg.entities:
         print(obj.uid)
         if obj.uid[0] == 'transformer' or obj.uid[0] == 'FixedSrc':
             print(obj.out_max)
+            print(type(obj.out_max))
 
 for entity in SmEnOsReg.entities:
     entity.uid = str(entity.uid)
-    
+
 
 # Optimize the energy system
 SmEnOsReg.optimize()
