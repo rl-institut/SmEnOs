@@ -465,3 +465,37 @@ def scale_profile_to_sum_of_energy(filename, energy):
     profile = pd.read_csv(filename, sep=",")
     generation_profile = profile.values * float(energy) / sum(profile.values)
     return generation_profile
+
+
+def call_demandlib(demand, method, year, **kwargs):
+    '''
+    Calls the demandlib and creates an object which includes the demand
+    timeseries.
+
+    Required Parameters
+    -------------------
+    demand :
+    method : Method which is to be applied for the demand calculation
+    '''
+    demand.val = dm.electrical_demand(method,
+                         year=year,
+                         ann_el_demand_per_sector=kwargs.get(
+                         'ann_el_demand_per_sector'),
+                         path=kwargs.get('path'),
+                         filename=kwargs.get('filename'),
+                         ann_el_demand_per_person=kwargs.get(
+                         'ann_el_demand_per_person'),
+                         household_structure=kwargs.get(
+                         'household_structure'),
+                         household_members_all=kwargs.get(
+                         'household_members_all'),
+                         population=kwargs.get(
+                         'population'),
+                         comm_ann_el_demand_state=kwargs.get(
+                         'comm_ann_el_demand_state'),
+                         comm_number_of_employees_state=kwargs.get(
+                         'comm_number_of_employees_state'),
+                         comm_number_of_employees_region=kwargs.get(
+                         'comm_number_of_employees_region')).elec_demand
+
+    return demand
