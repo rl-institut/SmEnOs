@@ -8,10 +8,11 @@ import numpy as np
 
 from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import sources as source
+from oemof.demandlib import demand as dm
 
 
 def get_parameters():
-    # returns emission and cost parameters
+    'returns emission and cost parameters'
 
     # emission factors [t/MWh]
     co2_emissions = {}
@@ -105,6 +106,37 @@ def get_parameters():
     price['hydro_power'] = 0
 
     return(co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex, price)
+
+
+def get_res_parameters():
+    site = {'module_name': 'Yingli_YL210__2008__E__',
+        'azimuth': 0,
+        'tilt': 0,
+        'albedo': 0.2,
+        'hoy': 8760,
+        'h_hub': 135,
+        'd_rotor': 127,
+        'wka_model': 'ENERCON E 126 7500',
+        'h_hub_dc': {
+            1: 135,
+            2: 78,
+            3: 98,
+            4: 138,
+            0: 135},
+        'd_rotor_dc': {
+            1: 127,
+            2: 82,
+            3: 82,
+            4: 82,
+            0: 127},
+        'wka_model_dc': {
+            1: 'ENERCON E 126 7500',
+            2: 'ENERCON E 82 3000',
+            3: 'ENERCON E 82 2300',
+            4: 'ENERCON E 82 2300',
+            0: 'ENERCON E 126 7500'},
+        }
+    return site
 
 
 def get_demand(conn):
