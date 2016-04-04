@@ -479,6 +479,8 @@ def call_demandlib(demand, method, year, **kwargs):
     '''
     demand.val = dm.electrical_demand(method,
                          year=year,
+                         annual_elec_demand=kwargs.get(
+                         'annual_elec_demand'),
                          ann_el_demand_per_sector=kwargs.get(
                          'ann_el_demand_per_sector'),
                          path=kwargs.get('path'),
