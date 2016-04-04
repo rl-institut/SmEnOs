@@ -139,13 +139,20 @@ def get_res_parameters():
     return site
 
 
-def get_demand(conn):
+def get_demand(conn, regions):
     sql = """
-        SELECT sector, region, demand
-        FROM oemof.demand as pp
-        """
+        SELECT nuts.nuts_id,
+            ds.energy_sector AS energy,
+            ds.consumption_sector AS sector,
+            d.demand
+        FROM oemof.demand AS d
+        JOIN oemof.demand_sector AS ds ON d.sector=ds.id
+        JOIN oemof.geo_nuts_rg_2013 AS nuts ON nuts.gid=d.region
+        WHERE nuts.nuts_id IN
+        """ + str(regions)
     df = pd.DataFrame(
-        conn.execute(sql).fetchall(), columns=['sector', 'fstate', 'demands'])
+        conn.execute(sql).fetchall(),
+        columns=['nuts_id', 'energy', 'sector', 'demand'])
     return df
 
 
