@@ -9,6 +9,9 @@ import numpy as np
 from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import sources as source
 from oemof.demandlib import demand as dm
+from oemof.demandlib import energy_buildings as eb
+from oemof.demandlib import bdew_heatprofile as bdew_heat
+from oemof.tools import helpers
 
 
 def get_parameters():
@@ -61,6 +64,7 @@ def get_parameters():
     eta_elec['pumped_storage'] = 0.40
     eta_elec['pumped_storage_in'] = 0.98
     eta_elec['pumped_storage_out'] = 0.98
+    eta_elec['transmission'] = 0.997
 
     eta_th = {}
     eta_th['lignite'] = 0.35
@@ -82,6 +86,7 @@ def get_parameters():
     opex_var['waste'] = 1
     opex_var['biomass'] = 1
     opex_var['pumped_storage'] = 1
+    opex_var['run_of_river'] = 1
 
     capex = {}
     capex['lignite'] = 22
@@ -93,6 +98,7 @@ def get_parameters():
     capex['waste'] = 1
     capex['biomass'] = 1
     capex['pumped_storage'] = 1
+    capex['run_of_river'] = 1
 
     # price for ressource
     price = {}
@@ -105,7 +111,13 @@ def get_parameters():
     price['pumped_storage'] = 0
     price['hydro_power'] = 0
 
-    return(co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex, price)
+    # C-rate for storages
+    c_rate = {}
+    c_rate['pumped_storage_in'] = 1
+    c_rate['pumped_storage_out'] = 1
+
+    return(co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex, price,
+        c_rate)
 
 
 def get_res_parameters():
@@ -137,6 +149,19 @@ def get_res_parameters():
             0: 'ENERCON E 126 7500'},
         }
     return site
+
+
+def get_bdew_heatprofile_parameters():
+    #TODO Werte recherchieren
+    bdew_heatprofile_parameters = pd.DataFrame(
+        [{'share_EFH': 0.5, 'wind_class': 1, 'building_class': 1},
+            {'share_EFH': 0.5, 'wind_class': 1, 'building_class': 1},
+            {'share_EFH': 0.5, 'wind_class': 1, 'building_class': 1},
+            {'share_EFH': 0.5, 'wind_class': 1, 'building_class': 1},
+            {'share_EFH': 0.5, 'wind_class': 1, 'building_class': 1},
+            {'share_EFH': 0.5, 'wind_class': 1, 'building_class': 1}],
+        index=['BE', 'BB', 'MV', 'SN', 'ST', 'TH'])
+    return bdew_heatprofile_parameters
 
 
 def get_demand(conn, regions):
@@ -197,22 +222,24 @@ def get_opsd_pps(conn, geometry):
     return df
 
 
-def get_small_runofriver_pps(conn):
+def get_small_runofriver_pps(conn, regions):
     sql = """
         SELECT state_short, capacity, energy_average
         FROM oemof_test.runofriver_under10mw as ror
-        """
+        WHERE state_short IN
+        """ + str(regions)
     df = pd.DataFrame(
         conn.execute(sql).fetchall(), columns=[
-        'state_short', 'capacity', 'energy'])
+        'state_short', 'capacity_mw', 'energy_mwh'])
     return df
 
 
-def get_pumped_storage_pps(conn):
+def get_pumped_storage_pps(conn, regions):
     sql = """
         SELECT state_short, power_mw, capacity_mwh
         FROM oemof_test.pumped_storage_germany as pspp
-        """
+        WHERE state_short IN
+        """ + str(regions)
     df = pd.DataFrame(
         conn.execute(sql).fetchall(), columns=['state_short', 'power_mw',
             'capacity_mwh'])
@@ -221,6 +248,202 @@ def get_pumped_storage_pps(conn):
 
 def entity_exists(esystem, uid):
     return len([obj for obj in esystem.entities if obj.uid == uid]) > 0
+
+
+def create_opsd_summed_objects(esystem, region, pp, **kwargs):
+
+    'Creates entities for each type generation'
+
+    (co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex,
+        price, c_rate) = get_parameters()
+
+    typeofgen = kwargs.get('typeofgen')
+    ror_cap = kwargs.get('ror_cap')
+    pumped_storage = kwargs.get('pumped_storage')
+    chp_faktor = kwargs.get('chp_faktor', 0.2)
+    cap_initial = kwargs.get('cap_initial', 0)
+
+    # replace NaN with 0
+    mask = pd.isnull(pp)
+    pp = pp.where(~mask, other=0)
+
+    capacity = {}
+    capacity_chp_el = {}
+    capacity_chp_th = {}
+    efficiency = {}
+    for typ in typeofgen:
+        # capacity for simple transformer (chp = no)
+        capacity[typ] = sum(pp[pp['type'].isin([typ])][pp['status'].isin([
+            'operating'])][pp['chp'].isin(['no'])]['cap_el'])
+        # el capacity for chp transformer (cap_el_uba +
+           # cap_el(where cap_th_uba=0 and chp=yes))
+        capacity_chp_el[typ] = sum(pp[pp['type'].isin([typ])][pp[
+            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][
+            'cap_el_uba']) + sum(pp[pp['type'].isin([typ])][pp['status'].isin([
+            'operating'])][pp['chp'].isin(['yes'])][pp['cap_th_uba'].isin(
+            [0])]['cap_el'])
+        # th capacity for chp transformer (cap_th_uba + cap_el*Faktor
+           # (where cap_th_uba=0 and chp=yes))
+        capacity_chp_th[typ] = float(sum(pp[pp['type'].isin([typ])][pp[
+            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][
+            'cap_th_uba'])) + float(sum(pp[pp['type'].isin([typ])][pp[
+            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][pp[
+            'cap_th_uba'].isin([0])]['cap_el']) * chp_faktor)
+
+        # efficiency only for simple transformer
+        efficiency[typ] = np.mean(pp[pp['type'].isin([typ])][pp[
+        'status'].isin(['operating'])][pp['chp'].isin(['no'])]['efficiency'])
+
+        if capacity_chp_el[typ] > 0:
+            transformer.CHP(
+                uid=('transformer', region.name, typ, 'chp'),
+                # nimmt von ressourcenbus
+                inputs=[obj for obj in esystem.entities if obj.uid == (
+                    'bus', 'global', typ)],
+                # speist auf strombus und fernwärmebus ein
+                outputs=[[obj for obj in region.entities if obj.uid == (
+                    'bus', region.name, 'elec')][0],
+                    [obj for obj in region.entities if obj.uid == (
+                    'bus', region.name, 'dh')][0]],
+                in_max=[None],
+                out_max=[float(capacity_chp_el[typ]),
+                    float(capacity_chp_th[typ])],
+                eta=[eta_elec[typ], eta_th[typ]],
+                opex_var=opex_var[typ],
+                regions=[region])
+
+        if capacity[typ] > 0:
+            transformer.Simple(
+                uid=('transformer', region.name, typ),
+                # nimmt von ressourcenbus
+                inputs=[obj for obj in esystem.entities if obj.uid == (
+                    'bus', 'global', typ)],
+                outputs=[[obj for obj in region.entities if obj.uid == (
+                'bus', region.name, 'elec')][0]],
+                in_max=[None],
+                out_max=[float(capacity[typ])],
+                eta=efficiency[typ],
+                opex_var=opex_var[typ],
+                regions=[region])
+
+    # pumped storage
+    typ = 'pumped_storage'
+    power = sum(pumped_storage[pumped_storage[
+        'state_short'].isin([region.name])]['power_mw'])
+    if power > 0:
+        transformer.Storage(
+            uid=('Storage', region.name, typ),
+            # nimmt von strombus
+            inputs=[obj for obj in esystem.entities if obj.uid == (
+               'bus', region.name, 'elec')],
+            # speist auf strombus ein
+            outputs=[obj for obj in region.entities if obj.uid == (
+               'bus', region.name, 'elec')],
+            cap_max=float(sum(pumped_storage[pumped_storage[
+                'state_short'].isin([region.name])]['capacity_mwh'])),
+            cap_min=0,
+            in_max=[power],
+            out_max=[power],
+            eta_in=eta_elec[typ + '_in'],
+            eta_out=eta_elec[typ + '_out'],
+            c_rate_in=c_rate[typ + '_in'],
+            c_rate_out=c_rate[typ + '_out'],
+            opex_var=opex_var[typ],
+            capex=capex[typ],
+            cap_initial=cap_initial,
+            regions=[region])
+
+    # run of river
+    typ = 'run_of_river'
+    energy = sum(ror_cap[ror_cap['state_short'].isin(
+        [region.name])]['energy_mwh'])
+    capacity[typ] = sum(pp[pp['type'].isin([typ])][
+       pp['status'].isin(['operating'])]['cap_el']) + sum(ror_cap[ror_cap[
+       'state_short'].isin([region.name])]['capacity_mw'])
+    if energy > 0:
+        source.FixedSource(
+            uid=('FixedSrc', region.name, 'hydro'),
+            # speist auf strombus ein
+            outputs=[obj for obj in region.entities if obj.uid == (
+               'bus', region.name, 'elec')],
+            val=scale_profile_to_sum_of_energy(
+                filename=kwargs.get('filename_hydro'),
+                energy=energy),
+            out_max=[capacity[typ]],  # inst. Leistung!
+            regions=[region])
+
+
+def scale_profile_to_capacity(filename, capacity):
+    profile = pd.read_csv(filename, sep=",")
+    generation_profile = (profile.values / np.amax(profile.values) *
+        float(capacity))
+    return generation_profile
+
+
+def scale_profile_to_sum_of_energy(filename, energy):
+    profile = pd.read_csv(filename, sep=",")
+    generation_profile = profile.values * float(energy) / sum(profile.values)
+    return generation_profile
+
+
+def call_el_demandlib(demand, method, year, **kwargs):
+    '''
+    Calls the demandlib and creates an object which includes the demand
+    timeseries.
+
+    Required Parameters
+    -------------------
+    demand :
+    method : Method which is to be applied for the demand calculation
+    '''
+    demand.val = dm.electrical_demand(method,
+                         year=year,
+                         annual_elec_demand=kwargs.get(
+                         'annual_elec_demand'),
+                         ann_el_demand_per_sector=kwargs.get(
+                         'ann_el_demand_per_sector'),
+                         path=kwargs.get('path'),
+                         filename=kwargs.get('filename'),
+                         ann_el_demand_per_person=kwargs.get(
+                         'ann_el_demand_per_person'),
+                         household_structure=kwargs.get(
+                         'household_structure'),
+                         household_members_all=kwargs.get(
+                         'household_members_all'),
+                         population=kwargs.get(
+                         'population'),
+                         comm_ann_el_demand_state=kwargs.get(
+                         'comm_ann_el_demand_state'),
+                         comm_number_of_employees_state=kwargs.get(
+                         'comm_number_of_employees_state'),
+                         comm_number_of_employees_region=kwargs.get(
+                         'comm_number_of_employees_region')).elec_demand
+    return demand
+
+
+def call_heat_demandlib(region, year, **kwargs):
+    '''
+    Calls the demandlib and creates an object which includes the demand
+    timeseries.
+
+    Required Parameters
+    -------------------
+    demand : Sink object
+    region : Region object
+    '''
+    holidays = helpers.get_german_holidays(year, ['Germany', region.name])
+    load_profile = eb.Building().hourly_heat_demand(
+                        fun=bdew_heat.create_bdew_profile,
+                        datapath="../../oemof/oemof/demandlib/bdew_data",
+                        year=year, holidays=holidays,
+                        temperature=region.temp,
+                        shlp_type=kwargs.get('shlp_type', None),
+                        building_class=kwargs.get('region.building_class', 0),
+                        wind_class=region.wind_class,
+                        ww_incl=kwargs.get('ww_incl', True),
+                        annual_heat_demand=kwargs.get(
+                            'annual_heat_demand', None))
+    return load_profile
 
 
 def create_opsd_entity_objects(esystem, region, pp, bclass, **kwargs):
@@ -335,169 +558,3 @@ def create_opsd_entity_objects(esystem, region, pp, bclass, **kwargs):
     print ('hier')
     print (pp[1].cap_el)
     print (type(pp[1].cap_el))
-
-
-def create_opsd_summed_objects(esystem, region, pp, bclass, chp_faktor,
-    **kwargs):  # bclass = Bus
-
-    'Creates entities for each type generation'
-
-    (co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex,
-        price) = get_parameters()
-
-    typeofgen = kwargs.get('typeofgen')
-    ror_cap = kwargs.get('ror_cap')
-    pumped_storage = kwargs.get('pumped_storage')
-    print('Anfang Funktion')
-
-    # replace NaN with 0
-    mask = pd.isnull(pp)
-    pp = pp.where(~mask, other=0)
-
-    capacity = {}
-    capacity_chp_el = {}
-    capacity_chp_th = {}
-    efficiency = {}
-    for typ in typeofgen:
-        # capacity for simple transformer (chp = no)
-        capacity[typ] = sum(pp[pp['type'].isin([typ])][pp['status'].isin([
-            'operating'])][pp['chp'].isin(['no'])]['cap_el'])
-        # el capacity for chp transformer (cap_el_uba +
-           # cap_el(where cap_th_uba=0 and chp=yes))
-        capacity_chp_el[typ] = sum(pp[pp['type'].isin([typ])][pp[
-            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][
-            'cap_el_uba']) + sum(pp[pp['type'].isin([typ])][pp['status'].isin([
-            'operating'])][pp['chp'].isin(['yes'])][pp['cap_th_uba'].isin(
-            [0])]['cap_el'])
-        # th capacity for chp transformer (cap_th_uba + cap_el*Faktor
-           # (where cap_th_uba=0 and chp=yes))
-        capacity_chp_th[typ] = float(sum(pp[pp['type'].isin([typ])][pp[
-            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][
-            'cap_th_uba'])) + float(sum(pp[pp['type'].isin([typ])][pp[
-            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][pp[
-            'cap_th_uba'].isin([0])]['cap_el']) * chp_faktor)
-
-        # efficiency only for simple transformer
-        efficiency[typ] = np.mean(pp[pp['type'].isin([typ])][pp[
-        'status'].isin(['operating'])][pp['chp'].isin(['no'])]['efficiency'])
-
-        if capacity_chp_el[typ] > 0:
-            transformer.CHP(
-                uid=('transformer', region.name, typ, 'chp'),
-                # nimmt von ressourcenbus
-                inputs=[obj for obj in esystem.entities if obj.uid == (
-                    'bus', 'global', typ)],
-                # speist auf strombus und fernwärmebus ein
-                outputs=[[obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'elec')][0],
-                    [obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'dh')][0]],
-                in_max=[None],
-                out_max=[float(capacity_chp_el[typ]),
-                    float(capacity_chp_th[typ])],
-                eta=[eta_elec[typ], eta_th[typ]],
-                opex_var=opex_var[typ],
-                regions=[region])
-
-        if capacity[typ] > 0:
-            transformer.Simple(
-                uid=('transformer', region.name, typ),
-                # nimmt von ressourcenbus
-                inputs=[obj for obj in esystem.entities if obj.uid == (
-                    'bus', 'global', typ)],
-                outputs=[[obj for obj in region.entities if obj.uid == (
-                'bus', region.name, 'elec')][0]],
-                in_max=[None],
-                out_max=[float(capacity[typ])],
-                eta=efficiency[typ],
-                opex_var=opex_var[typ],
-                regions=[region])
-
-    # pumped storage
-    typ = 'pumped_storage'
-    power = sum(pumped_storage[pumped_storage[
-        'state_short'].isin([region.name])]['power_mw'])
-    if power > 0:
-        transformer.Storage(
-            uid=('Storage', region.name, typ),
-            # nimmt von strombus
-            inputs=[obj for obj in esystem.entities if obj.uid == (
-               'bus', region.name, 'elec')],
-            # speist auf strombus ein
-            outputs=[obj for obj in region.entities if obj.uid == (
-               'bus', region.name, 'elec')],
-            cap_max=float(sum(pumped_storage[pumped_storage[
-                'state_short'].isin([region.name])]['capacity_mwh'])),
-            out_max=[power],
-            in_max=[power],
-            eta_in=eta_elec['pumped_storage_in'],  # TODO: anlegen!!
-            eta_out=eta_elec['pumped_storage_out'],  # TODO: anlegen!!
-            opex_var=opex_var[typ],
-            regions=[region])
-
-    # run of river
-    typ = 'run_of_river'
-    energy = sum(ror_cap[ror_cap['state_short'].isin([region.name])]['energy'])
-    capacity[typ] = sum(pp[pp['type'].isin([typ])][
-       pp['status'].isin(['operating'])]['cap_el']) + sum(ror_cap[ror_cap[
-       'state_short'].isin([region.name])]['capacity'])
-    if energy > 0:
-        source.FixedSource(
-            uid=('FixedSrc', region.name, 'hydro'),
-            # speist auf strombus ein
-            outputs=[obj for obj in region.entities if obj.uid == (
-               'bus', region.name, 'elec')],
-            val=scale_profile_to_sum_of_energy(
-                filename=kwargs.get('filename_hydro'),
-                energy=energy),
-            out_max=[capacity[typ]],  # inst. Leistung!
-            regions=[region])
-
-
-def scale_profile_to_capacity(filename, capacity):
-    profile = pd.read_csv(filename, sep=",")
-    generation_profile = (profile.values / np.amax(profile.values) *
-        float(capacity))
-    return generation_profile
-
-
-def scale_profile_to_sum_of_energy(filename, energy):
-    profile = pd.read_csv(filename, sep=",")
-    generation_profile = profile.values * float(energy) / sum(profile.values)
-    return generation_profile
-
-
-def call_demandlib(demand, method, year, **kwargs):
-    '''
-    Calls the demandlib and creates an object which includes the demand
-    timeseries.
-
-    Required Parameters
-    -------------------
-    demand :
-    method : Method which is to be applied for the demand calculation
-    '''
-    demand.val = dm.electrical_demand(method,
-                         year=year,
-                         annual_elec_demand=kwargs.get(
-                         'annual_elec_demand'),
-                         ann_el_demand_per_sector=kwargs.get(
-                         'ann_el_demand_per_sector'),
-                         path=kwargs.get('path'),
-                         filename=kwargs.get('filename'),
-                         ann_el_demand_per_person=kwargs.get(
-                         'ann_el_demand_per_person'),
-                         household_structure=kwargs.get(
-                         'household_structure'),
-                         household_members_all=kwargs.get(
-                         'household_members_all'),
-                         population=kwargs.get(
-                         'population'),
-                         comm_ann_el_demand_state=kwargs.get(
-                         'comm_ann_el_demand_state'),
-                         comm_number_of_employees_state=kwargs.get(
-                         'comm_number_of_employees_state'),
-                         comm_number_of_employees_region=kwargs.get(
-                         'comm_number_of_employees_region')).elec_demand
-
-    return demand

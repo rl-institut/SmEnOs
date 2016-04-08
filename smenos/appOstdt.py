@@ -9,36 +9,31 @@
 ## prüfen bei feedinlib: absolute Zahlen oder normierte Zeitreihen???
 ## braunkohlekraftwerk Dessau: 150 MW wärme (bis jetzt in Datenbank nur strom,
 ##                          nicht wärme)
-
+## Skalierung 50Hertz Lastgang - Beachtung von Feiertagen?
 
 
 import logging
 import pandas as pd
 import numpy as np
+from matplotlib import pyplot as plt
+import warnings
 
 from oemof import db
 from oemof.db import tools
-from oemof.db import powerplants as db_pps
 from oemof.db import feedin_pg
+from oemof.db import coastdat
 from oemof.tools import logger
 from oemof.core import energy_system as es
 from oemof.solph import predefined_objectives as predefined_objectives
 from oemof.core.network.entities import Bus
-from oemof.core.network.entities.components import sources as source
 from oemof.core.network.entities.components import sinks as sink
-from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import transports as transport
-#neu:
-import helper_SmEnOs as hls
-from oemof.demandlib import demand as dm
-#only for demand:
-from oemof.tools import helpers
 
-import warnings
-warnings.simplefilter(action="ignore", category=RuntimeWarning)
+import helper_SmEnOs as hls
 
 
 # Basic inputs
+warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
 time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
@@ -71,142 +66,203 @@ for index, row in regionsOstdt.iterrows():
 # Add global buses
 typeofgen_global = ['natural_gas', 'lignite', 'hard_coal', 'oil', 'waste']
 (co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex,
-    price) = hls.get_parameters()
+    price, c_rate) = hls.get_parameters()
 for typ in typeofgen_global:
     Bus(uid=('bus', 'global', typ), type=typ, price=price[typ],
         excess=False, regions=SmEnOsReg.regions)
-# Add electricity buses, district heating buses for each region
-for region in SmEnOsReg.regions:
-    # el
-    Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
-        regions=[region], excess=False)
-    # dh
-    Bus(uid=('bus', region.name, 'dh'), type='dh', price=0,
-        regions=[region], excess=False)
 
 # Add electricity sink for each region
 demands_df = hls.get_demand(conn, tuple(regionsOstdt['nutsID']))
-annual_el_dem = {}
 for region in SmEnOsReg.regions:
+    # create electricity bus
+    Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
+        regions=[region], excess=False)
     # create electricity sink
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
         inputs=[obj for obj in SmEnOsReg.entities
-            if obj.uid == ('bus', region.name, 'elec')], region = region)
-    # get regional electricity demand
+            if obj.uid == ('bus', region.name, 'elec')], region=region)
+    # get regional electricity demand [MWh/a]
     nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
     el_demand = demands_df.query(
         'nuts_id==@nutID and energy=="electricity"').sum(axis=0)['demand']
     # create el. profile and write to sink object
-    hls.call_demandlib(demand, method='scale_profile_csv', year=year, path='',
-        filename='50Hertz2010_y.csv', annual_elec_demand=el_demand)
+    hls.call_el_demandlib(demand, method='scale_profile_csv', year=year,
+        path='', filename='50Hertz2010_y.csv', annual_elec_demand=el_demand)
 
-#{'TH': {'el_GHD': 3501389, 'el_HH': 2427253, 'el_I': 6052778, 'el_all': 11981420},
-    #'BB': {'el_GHD': 4430278, 'el_HH': 3133230, 'el_I': 7041111, 'el_all': 14604619},
-    #'BE': {'el_GHD': 4223056, 'el_HH': 3680877, 'el_I': 1886111, 'el_all': 9790044},
-    #'MV': {'el_GHD': 8396100, 'el_HH': 6966378, 'el_I': 1608083, 'el_all': 16970561},
-    #'SN': {'el_GHD': 3718056, 'el_HH': 4491697, 'el_I': 10094444, 'el_all': 18304197},
-    #'ST': {'el_GHD': 2018056, 'el_HH': 2622503, 'el_I': 9607222, 'el_all': 14247781}}
+# Connect the electrical buses of federal states
+ebusBB = [obj for obj in SmEnOsReg.entities if obj.uid == (
+    'bus', 'BB', 'elec')][0]
+ebusST = [obj for obj in SmEnOsReg.entities if obj.uid == (
+    'bus', 'ST', 'elec')][0]
+ebusBE = [obj for obj in SmEnOsReg.entities if obj.uid == (
+    'bus', 'BE', 'elec')][0]
+ebusMV = [obj for obj in SmEnOsReg.entities if obj.uid == (
+    'bus', 'MV', 'elec')][0]
+ebusTH = [obj for obj in SmEnOsReg.entities if obj.uid == (
+    'bus', 'TH', 'elec')][0]
+ebusSN = [obj for obj in SmEnOsReg.entities if obj.uid == (
+    'bus', 'SN', 'elec')][0]
+SmEnOsReg.connect(ebusBB, ebusST, in_max=5880, out_max=5880,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusBB, ebusBE, in_max=3000, out_max=3000,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusBB, ebusSN, in_max=5040, out_max=5040,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusBB, ebusMV, in_max=3640, out_max=3640,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusMV, ebusST, in_max=1960, out_max=1960,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusTH, ebusST, in_max=1680, out_max=1680,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
 
-#annual_heat_dem = {}
-#for region in SmEnOsReg.regions:
-    #annual_heat_dem[region.name] = {}
-    #for sec in ['th_I', 'th_GHD', 'th_HH']:
-        #annual_heat_dem[region.name][sec] = {}
-        #annual_heat_dem_tmp = list(demands_df.query(
-            #'sector == ' + str(sectorcode[sec]) + ' and fstate ==' + dbcode[
-            #region.name])['demands'])[0]
-        #print (annual_heat_dem_tmp)
-        #for ressource in list(annual_heat_dem_tmp.keys()):
-            #print (ressource)
-            #annual_heat_dem[region.name][sec][ressource] = \
-                #annual_heat_dem_tmp[ressource]
-#print (annual_heat_dem)
+# Add heat sinks for each region, sector and ressource
+heat_params = hls.get_bdew_heatprofile_parameters()
+for region in SmEnOsReg.regions:
+    # get regional electricity demand
+    nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
+    demand_sectors = demands_df.query('nuts_id==@nutID and energy=="heat"')
+    # get temperature of region as np array [°C]
+    multiWeather = coastdat.get_weather(conn, region.geom, year)
+    temp = np.zeros([len(multiWeather[0].data.index), ])
+    for weather in multiWeather:
+        temp += weather.data['temp_air'].as_matrix()
+    temp = pd.Series(temp / len(multiWeather) - 273.15)
+    region.temp = temp
+    # residential sector
+    sec = 'residential'
+    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
+    for ressource in list(demand_sector.keys()):
+        # create bus
+        Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+            price=0, regions=[region], excess=False)
+        # create sink
+        demand = sink.Simple(uid=('demand', region.name, sec, ressource),
+            inputs=[obj for obj in SmEnOsReg.entities
+                if obj.uid == ('bus', region.name, sec, ressource)],
+            region=region)
+        # create heat load profile and write to sink object
+        # heat load in [MWh/a]
+        #TODO Umwandlungswirkungsgrade beachten!
+        #TODO Bei WP Heizung und WW getrennt...
+        region.share_efh = heat_params.ix[region.name]['share_EFH']
+        region.building_class = heat_params.ix[region.name]['building_class']
+        region.wind_class = heat_params.ix[region.name]['wind_class']
+        profile_efh = hls.call_heat_demandlib(region, year,
+            annual_heat_demand=demand_sector[ressource] * region.share_efh,
+            shlp_type='EFH', ww_incl=True)
+        profile_mfh = hls.call_heat_demandlib(region, year,
+            annual_heat_demand=(demand_sector[ressource] *
+                (1 - region.share_efh)),
+            shlp_type='MFH', ww_incl=True)
+        demand.val = profile_efh + profile_mfh
+        #TODO Fehler Summe entspricht nicht dem vorgegebenen Demand
 
-#########################################################
-#######################################################
+    # commercial sector
+    sec = 'commercial'
+    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
+    for ressource in list(demand_sector.keys()):
+        # create bus
+        Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+            price=0, regions=[region], excess=False)
+        # create sink
+        demand = sink.Simple(uid=('demand', region.name, sec, ressource),
+            inputs=[obj for obj in SmEnOsReg.entities
+                if obj.uid == ('bus', region.name, sec, ressource)],
+            region=region)
+        # create heat load profile and write to sink object
+        # heat load in [MWh/a]
+        #TODO Umwandlungswirkungsgrade beachten!
+        region.wind_class = heat_params.ix[region.name]['wind_class']
+        demand.val = hls.call_heat_demandlib(region, year,
+            annual_heat_demand=demand_sector[ressource],
+            shlp_type='GHD', ww_incl=True)
 
-#ror_cap = hls.get_small_runofriver_pps(conn)
-#pumped_storage = hls.get_pumped_storage_pps(conn)
+    # industrial sector
+    sec = 'industrial'
+    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
+    for ressource in list(demand_sector.keys()):
+        # create bus
+        Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+            price=0, regions=[region], excess=False)
+        # create sink
+        demand = sink.Simple(uid=('demand', region.name, sec, ressource),
+            inputs=[obj for obj in SmEnOsReg.entities
+                if obj.uid == ('bus', region.name, sec, ressource)],
+            region=region)
+        # create heat load profile and write to sink object
+        # heat load in [MWh/a]
+        #TODO Umwandlungswirkungsgrade beachten!
+        #TODO Industrielastprofil einfügen
+        region.wind_class = heat_params.ix[region.name]['wind_class']
+        demand.val = hls.call_heat_demandlib(region, year,
+            annual_heat_demand=demand_sector[ressource],
+            shlp_type='GHD', ww_incl=True)
+        ax = demand.val.plot()
+        ax.set_xlabel("Hour of the year")
+        ax.set_ylabel("Heat demand in MW")
+        plt.show()
 
- #Create entity objects for each region
-#for region in SmEnOsReg.regions:
-    #logging.info('Processing region: {0} ({1})'.format(
-        #region.name, region.code))
-    #print('get Datafrom db')
+# Get run-of-river and pumped storage capacities
+# ror_cap is Series with state abbr, capacity_mw and energy_mwh
+ror_cap = hls.get_small_runofriver_pps(conn, tuple(regionsOstdt['abbr']))
+# pumped_storage is Series with state abbr, power_mw and capacity_mwh
+pumped_storage = hls.get_pumped_storage_pps(conn, tuple(regionsOstdt['abbr']))
+# renewable parameters
+site = hls.get_res_parameters()
 
- ###achtung: kontrollieren!!!! absolute oder normierte Zeitreihen????
-## todo: Problem mit Erdwärme??!!
-    #feedin_pg.Feedin().create_fixed_source(
-        #conn, region=region, year=SmEnOsReg.time_idx.year[0], bustype='elec', **site)
+# Create entity objects for each region
+for region in SmEnOsReg.regions:
+    logging.info('Processing region: {0}'.format(region.name))
 
-     #Get power plants from database and write them into a DataFrame
-    #pps_df = hls.get_opsd_pps(conn, region.geom)
-    #print('got data from db')
+    #TODO kontrollieren absolute oder normierte Zeitreihen????
+    # Sollten normierte Zeitreihen sein, feedin_pg erstellt aber absolute...
+    #TODO Problem mit Erdwärme??!!
+    #TODO CAPEX und OPEX fehlen noch
+    feedin_pg.Feedin().create_fixed_source(
+        conn, region=region, year=year, bustype='elec', **site)
 
-    #hls.create_opsd_summed_objects(SmEnOsReg, region, pps_df, bclass=Bus,
-                  #chp_faktor=float(0.2),
-                    #typeofgen=typeofgen_global,
-                    #ror_cap=ror_cap,
-                    #pumped_storage=pumped_storage,
-                    #filename_hydro='50Hertz2010.csv' )
+    # Get power plants from database and write them into a DataFrame
+    #TODO replace hard coded chp_faktor, cap_initial
+    pps_df = hls.get_opsd_pps(conn, region.geom)
+    hls.create_opsd_summed_objects(
+            SmEnOsReg, region, pps_df,
+            chp_faktor=0.2,
+            cap_initial=0.0,
+            typeofgen=typeofgen_global,
+            ror_cap=ror_cap,
+            pumped_storage=pumped_storage,
+            filename_hydro='50Hertz2010.csv')
 
+# Remove orphan buses
+buses = [obj for obj in SmEnOsReg.entities if isinstance(obj, Bus)]
+for bus in buses:
+    if len(bus.inputs) > 0 or len(bus.outputs) > 0:
+        logging.debug('Bus {0} has connections.'.format(bus.type))
+    else:
+        logging.debug('Bus {0} has no connections and will be deleted.'.format(
+            bus.type))
+        SmEnOsReg.entities.remove(bus)
 
+# print all entities of every region
+for entity in SmEnOsReg.entities:
+    print(entity.uid)
+    if entity.uid[0] == 'transformer' or entity.uid[0] == 'FixedSrc':
+        print('out_max')
+        print(entity.out_max)
+        print('type(out_max)')
+        print(type(entity.out_max))
 
- #Connect the electrical buses of federal states
+# Optimize the energy system
+SmEnOsReg.optimize()
+logging.info(SmEnOsReg.dump())
 
-#ebusBB = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    #'bus', 'BB', 'elec')][0]
-#ebusST = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    #'bus', 'ST', 'elec')][0]
-#ebusBE = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    #'bus', 'BE', 'elec')][0]
-#ebusMV = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    #'bus', 'MV', 'elec')][0]
-#ebusTH = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    #'bus', 'TH', 'elec')][0]
-#ebusSN = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    #'bus', 'SN', 'elec')][0]
-
-#SmEnOsReg.connect(ebusBB, ebusST, in_max=5880, out_max=5880,
-                      #eta=0.997, transport_class=transport.Simple)
-#SmEnOsReg.connect(ebusBB, ebusBE, in_max=3000, out_max=3000,
-                      #eta=0.997, transport_class=transport.Simple)
-#SmEnOsReg.connect(ebusBB, ebusSN, in_max=5040, out_max=5040,
-                      #eta=0.997, transport_class=transport.Simple)
-#SmEnOsReg.connect(ebusBB, ebusMV, in_max=3640, out_max=3640,
-                      #eta=0.997, transport_class=transport.Simple)
-#SmEnOsReg.connect(ebusMV, ebusST, in_max=1960, out_max=1960,
-                      #eta=0.997, transport_class=transport.Simple)
-#SmEnOsReg.connect(ebusTH, ebusST, in_max=1680, out_max=1680,
-                      #eta=0.997, transport_class=transport.Simple)
-#SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
-                      #eta=0.997, transport_class=transport.Simple)
-#SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
-                      #eta=0.997, transport_class=transport.Simple)
-
-
- #Remove orphan buses
-#buses = [obj for obj in SmEnOsReg.entities if isinstance(obj, Bus)]
-#for bus in buses:
-    #if len(bus.inputs) > 0 or len(bus.outputs) > 0:
-        #logging.debug('Bus {0} has connections.'.format(bus.type))
-    #else:
-        #logging.debug('Bus {0} has no connections and will be deleted.'.format(
-            #bus.type))
-        #SmEnOsReg.entities.remove(bus)
-
-#for obj in SmEnOsReg.entities:
-        #print(obj.uid)
-        #if obj.uid[0] == 'transformer' or obj.uid[0] == 'FixedSrc':
-            #print(obj.out_max)
-            #print(type(obj.out_max))
-
-#for entity in SmEnOsReg.entities:
-    #entity.uid = str(entity.uid)
-
-
- #Optimize the energy system
-#SmEnOsReg.optimize()
-
-#logging.info(SmEnOsReg.dump())
-#
+## Beispiel results aufrufen
+#results_pv = SmEnOsReg.results[[obj for obj in SmEnOsReg.entities
+    #if obj.uid == ('bus', region.name, 'elec')][0]]
+#results_pv_feedin = results_pv[[obj for obj in SmEnOsReg.entities
+    #if obj.uid == ('demand', region.name, 'elec')][0]]
+#print (sum(results_pv_feedin))
