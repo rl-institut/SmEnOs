@@ -208,7 +208,7 @@ for region in SmEnOsReg.regions:
 
 # Get run-of-river and pumped storage capacities
 # ror_cap is Series with state abbr, capacity_mw and energy_mwh
-ror_cap = hls.get_small_runofriver_pps(conn, tuple(regionsOstdt['abbr']))
+ror_cap = hls.get_hydro_energy(conn, tuple(regionsOstdt['abbr']))
 # pumped_storage is Series with state abbr, power_mw and capacity_mwh
 pumped_storage = hls.get_pumped_storage_pps(conn, tuple(regionsOstdt['abbr']))
 # renewable parameters
@@ -222,8 +222,8 @@ for region in SmEnOsReg.regions:
     # Sollten normierte Zeitreihen sein, feedin_pg erstellt aber absolute...
     #TODO Problem mit Erdwärme??!!
     #TODO CAPEX und OPEX fehlen noch
-    feedin_pg.Feedin().create_fixed_source(
-        conn, region=region, year=year, bustype='elec', **site)
+  #  feedin_pg.Feedin().create_fixed_source(
+  #      conn, region=region, year=year, bustype='elec', **site)
 
     # Get power plants from database and write them into a DataFrame
     #TODO replace hard coded chp_faktor, cap_initial

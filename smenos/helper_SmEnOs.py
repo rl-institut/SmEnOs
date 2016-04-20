@@ -222,10 +222,10 @@ def get_opsd_pps(conn, geometry):
     return df
 
 
-def get_small_runofriver_pps(conn, regions):
+def get_hydro_energy(conn, regions):
     sql = """
-        SELECT state_short, capacity, energy_average
-        FROM oemof_test.runofriver_under10mw as ror
+        SELECT state_short, capacity_2013, energy_2013
+        FROM oemof_test.hydro_energy_aee as ror
         WHERE state_short IN
         """ + str(regions)
     df = pd.DataFrame(
@@ -357,8 +357,7 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
     typ = 'run_of_river'
     energy = sum(ror_cap[ror_cap['state_short'].isin(
         [region.name])]['energy_mwh'])
-    capacity[typ] = sum(pp[pp['type'].isin([typ])][
-       pp['status'].isin(['operating'])]['cap_el']) + sum(ror_cap[ror_cap[
+    capacity[typ] = sum(ror_cap[ror_cap[
        'state_short'].isin([region.name])]['capacity_mw'])
     if energy > 0:
         source.FixedSource(
@@ -368,7 +367,8 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                'bus', region.name, 'elec')],
             val=scale_profile_to_sum_of_energy(
                 filename=kwargs.get('filename_hydro'),
-                energy=energy),
+                energy=energy,
+                capacity = capacity[typ]),
             out_max=[capacity[typ]],  # inst. Leistung!
             regions=[region])
 
@@ -380,9 +380,10 @@ def scale_profile_to_capacity(filename, capacity):
     return generation_profile
 
 
-def scale_profile_to_sum_of_energy(filename, energy):
+def scale_profile_to_sum_of_energy(filename, energy, capacity):
     profile = pd.read_csv(filename, sep=",")
-    generation_profile = profile.values * float(energy) / sum(profile.values)
+    generation_profile = profile.values * float(energy) / (
+                        sum(profile.values) * capacity)
     return generation_profile
 
 
