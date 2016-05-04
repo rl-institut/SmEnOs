@@ -459,6 +459,16 @@ def call_heat_demandlib(region, year, **kwargs):
     return load_profile
 
 
+def call_ind_profile(year, **kwargs):
+    '''
+    Creates an industrial load profile as step load profile.
+    '''
+    df = helpers.create_basic_dataframe(year)
+    enBuilding = eb.bdew_elec_slp(df)
+    #el_load_profile = ((factor / sum(factor) * annual_demand))
+    return enBuilding.slp['i0']
+
+
 def create_opsd_entity_objects(esystem, region, pp, bclass, **kwargs):
     'creates simple, CHP or storage transformer for pp from db'
 
