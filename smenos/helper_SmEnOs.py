@@ -439,7 +439,8 @@ def call_heat_demandlib(region, year, **kwargs):
                         year=year, holidays=holidays,
                         temperature=region.temp,
                         shlp_type=kwargs.get('shlp_type', None),
-                        building_class=kwargs.get('region.building_class', 0),
+                        building_class=(region.building_class
+                            if region.building_class is not None else 0),
                         wind_class=region.wind_class,
                         ww_incl=kwargs.get('ww_incl', True),
                         annual_heat_demand=kwargs.get(
