@@ -39,7 +39,7 @@ def get_parameters():
     co2_fix['lignite_dec'] = 0.1
     co2_fix['hard_coal_dec'] = 0.1
     co2_fix['biomass_dec'] = 0.1
-    co2_fix['oil_dec'] = 0.1
+    co2_fix['mineral_oil_dec'] = 0.1
     co2_fix['gas_dec'] = 0.1
     co2_fix['solar_heat_dec'] = 0.1
     co2_fix['heat_pump_dec'] = 0.1
@@ -74,6 +74,17 @@ def get_parameters():
     eta_th['waste'] = 0.40
     eta_th['biomass'] = 0.40
     eta_th['pumped_storage'] = 0.40
+        # decentralized pp
+    eta_th['dh'] = 0.7  #TODO In Abhängigkeit der Region?
+    eta_th['lignite_dec'] = 0.8
+    eta_th['hard_coal_dec'] = 0.8
+    eta_th['biomass_dec'] = 0.8
+    eta_th['mineral_oil_dec'] = 0.1
+    eta_th['gas_dec'] = 0.1
+    eta_th['solar_heat_dec'] = 0.5
+    eta_th['heat_pump_dec'] = 1.5  # aus Energieb.-Glossar Verhältnis 1/3 zu 2/3
+    eta_th['waste_dec'] = 0.7
+    eta_th['el_heat_dec'] = 0.9
 
     # costs [??]
     opex_var = {}
