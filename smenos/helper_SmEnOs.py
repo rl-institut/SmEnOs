@@ -460,20 +460,24 @@ def call_heat_demandlib(region, year, **kwargs):
     return load_profile
 
 
-def call_ind_profile(year, **kwargs):
 def ind_profile_parameters():
     am = settime(7, 0, 0)
     pm = settime(20, 00, 0)
     profile_factors = {'week': {'day': 0.8, 'night': 0.6},
                        'weekend': {'day': 0.9, 'night': 0.7}}
     return am, pm, profile_factors
+
+
+def call_ind_profile(year, annual_demand, **kwargs):
     '''
     Creates an industrial load profile as step load profile.
     '''
-    df = helpers.create_basic_dataframe(year)
-    enBuilding = eb.bdew_elec_slp(df)
-    #el_load_profile = ((factor / sum(factor) * annual_demand))
-    return enBuilding.slp['i0']
+    ilp = eb.IndustrialLoadProfile(
+        method='simple_industrial_profile', year=year,
+        annual_demand=annual_demand,
+        am=kwargs.get('am', None), pm=kwargs.get('pm', None),
+        profile_factors=kwargs.get('profile_factors', None))
+    return ilp.slp
 
 
 def create_opsd_entity_objects(esystem, region, pp, bclass, **kwargs):
