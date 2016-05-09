@@ -162,7 +162,6 @@ for region in SmEnOsReg.regions:
     sec = 'commercial'
     demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
     for ressource in list(demand_sector.keys()):
-        print(ressource)
         if demand_sector[ressource] != 0:
             # create bus
             Bus(uid=('bus', region.name, sec, ressource), type=ressource,
@@ -196,10 +195,9 @@ for region in SmEnOsReg.regions:
             # heat load in [MWh/a]
             #TODO Umwandlungswirkungsgrade beachten!
             #TODO Industrielastprofil einfügen
-            region.wind_class = heat_params.ix[region.name]['wind_class']
-            demand.val = hls.call_heat_demandlib(region, year,
-                annual_heat_demand=demand_sector[ressource],
-                shlp_type='GHD', ww_incl=True)
+            am, pm, profile_factors = hls.ind_profile_parameters()
+            demand.val = hls.call_ind_profile(year, demand_sector[ressource],
+                am=am, pm=pm, profile_factors=profile_factors)
             ax = demand.val.plot()
             ax.set_xlabel("Hour of the year")
             ax.set_ylabel("Heat demand in MW")
