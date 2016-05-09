@@ -5,6 +5,7 @@
 import logging
 import pandas as pd
 import numpy as np
+from datetime import time as settime
 
 from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import sources as source
@@ -460,6 +461,12 @@ def call_heat_demandlib(region, year, **kwargs):
 
 
 def call_ind_profile(year, **kwargs):
+def ind_profile_parameters():
+    am = settime(7, 0, 0)
+    pm = settime(20, 00, 0)
+    profile_factors = {'week': {'day': 0.8, 'night': 0.6},
+                       'weekend': {'day': 0.9, 'night': 0.7}}
+    return am, pm, profile_factors
     '''
     Creates an industrial load profile as step load profile.
     '''
