@@ -28,6 +28,7 @@ from oemof.solph import predefined_objectives as predefined_objectives
 from oemof.core.network.entities import Bus
 from oemof.core.network.entities.components import sinks as sink
 from oemof.core.network.entities.components import transports as transport
+from oemof.core.network.entities.components import sources as source
 
 import helper_SmEnOs as hls
 
@@ -162,6 +163,7 @@ for region in SmEnOsReg.regions:
     sec = 'commercial'
     demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
     for ressource in list(demand_sector.keys()):
+        print(ressource)
         if demand_sector[ressource] != 0:
             # create bus
             Bus(uid=('bus', region.name, sec, ressource), type=ressource,
@@ -215,12 +217,17 @@ site = hls.get_res_parameters()
 for region in SmEnOsReg.regions:
     logging.info('Processing region: {0}'.format(region.name))
 
-    #TODO kontrollieren absolute oder normierte Zeitreihen????
-    # Sollten normierte Zeitreihen sein, feedin_pg erstellt aber absolute...
     #TODO Problem mit Erdwärme??!!
     #TODO CAPEX und OPEX fehlen noch
-  #  feedin_pg.Feedin().create_fixed_source(
-  #      conn, region=region, year=year, bustype='elec', **site)
+    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
+        conn, region=region, year=year, bustype='elec', **site)
+    for stype in feedin_df.keys():
+        source.FixedSource(
+            uid=('FixedSrc', region.name, stype),
+            outputs=[obj for obj in region.entities if obj.uid == (
+                'bus', region.name, 'elec')],
+            val=feedin_df[stype],
+            out_max=[cap[stype]])
 
     # Get power plants from database and write them into a DataFrame
     #TODO replace hard coded chp_faktor, cap_initial
