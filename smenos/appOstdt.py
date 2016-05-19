@@ -260,6 +260,10 @@ for entity in SmEnOsReg.entities:
         print('type(out_max)')
         print(type(entity.out_max))
 
+# change uid tuples to strings
+for entity in SmEnOsReg.entities:
+    entity.uid = str(entity.uid)
+
 # Optimize the energy system
 SmEnOsReg.optimize()
 logging.info(SmEnOsReg.dump())
