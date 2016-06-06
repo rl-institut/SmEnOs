@@ -65,8 +65,9 @@ for index, row in regionsOstdt.iterrows():
         name=row['abbr']))
 # Add global buses
 typeofgen_global = ['natural_gas', 'lignite', 'hard_coal', 'oil', 'waste']
-(co2_emissions, co2_fix, eta_elec, eta_th, opex_var, capex,
-    price, c_rate) = hls.get_parameters()
+(co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp, 
+         eta_chp_flex_total, eta_chp_flex_el, opex_var, opex_fix, capex, 
+         price, c_rate) = hls.get_parameters()
 for typ in typeofgen_global:
     Bus(uid=('bus', 'global', typ), type=typ, price=price[typ],
         excess=False, regions=SmEnOsReg.regions)
@@ -76,6 +77,9 @@ demands_df = hls.get_demand(conn, tuple(regionsOstdt['nutsID']))
 for region in SmEnOsReg.regions:
     # create electricity bus
     Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
+        regions=[region], excess=False)
+    # create districtheat bus
+    Bus(uid=('bus', region.name, 'dh'), type='dh', price=0,
         regions=[region], excess=False)
     # create electricity sink
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
@@ -88,36 +92,6 @@ for region in SmEnOsReg.regions:
     # create el. profile and write to sink object
     hls.call_el_demandlib(demand, method='scale_profile_csv', year=year,
         path='', filename='50Hertz2010_y.csv', annual_elec_demand=el_demand)
-
-# Connect the electrical buses of federal states
-ebusBB = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    'bus', 'BB', 'elec')][0]
-ebusST = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    'bus', 'ST', 'elec')][0]
-ebusBE = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    'bus', 'BE', 'elec')][0]
-ebusMV = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    'bus', 'MV', 'elec')][0]
-ebusTH = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    'bus', 'TH', 'elec')][0]
-ebusSN = [obj for obj in SmEnOsReg.entities if obj.uid == (
-    'bus', 'SN', 'elec')][0]
-SmEnOsReg.connect(ebusBB, ebusST, in_max=5880, out_max=5880,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
-SmEnOsReg.connect(ebusBB, ebusBE, in_max=3000, out_max=3000,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
-SmEnOsReg.connect(ebusBB, ebusSN, in_max=5040, out_max=5040,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
-SmEnOsReg.connect(ebusBB, ebusMV, in_max=3640, out_max=3640,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
-SmEnOsReg.connect(ebusMV, ebusST, in_max=1960, out_max=1960,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
-SmEnOsReg.connect(ebusTH, ebusST, in_max=1680, out_max=1680,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
-SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
-SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
-    eta=eta_elec['transmission'], transport_class=transport.Simple)
 
 # Add heat sinks for each region, sector and ressource
 heat_params = hls.get_bdew_heatprofile_parameters()
@@ -234,12 +208,15 @@ for region in SmEnOsReg.regions:
     pps_df = hls.get_opsd_pps(conn, region.geom)
     hls.create_opsd_summed_objects(
             SmEnOsReg, region, pps_df,
-            chp_faktor=0.2,
+            chp_faktor=0.2, # capacity_chp_el * chp_factor = capacity_chp_th
             cap_initial=0.0,
+            chp_faktor_flex=0.84, # share of flexible generation of CHP
             typeofgen=typeofgen_global,
             ror_cap=ror_cap,
             pumped_storage=pumped_storage,
             filename_hydro='50Hertz2010.csv')
+            #TODO: waterfeedin2010.csv nutzen!!!
+            #TODO Biomasse <10MW
 
 # Remove orphan buses
 buses = [obj for obj in SmEnOsReg.entities if isinstance(obj, Bus)]
@@ -263,6 +240,37 @@ for entity in SmEnOsReg.entities:
 # change uid tuples to strings
 for entity in SmEnOsReg.entities:
     entity.uid = str(entity.uid)
+    
+# Connect the electrical buses of federal states
+ebusBB = [obj for obj in SmEnOsReg.entities if obj.uid == 
+    "('bus', 'BB', 'elec')"][0]
+ebusST = [obj for obj in SmEnOsReg.entities if obj.uid == 
+    "('bus', 'ST', 'elec')"][0]
+ebusBE = [obj for obj in SmEnOsReg.entities if obj.uid == 
+    "('bus', 'BE', 'elec')"][0]
+ebusMV = [obj for obj in SmEnOsReg.entities if obj.uid == 
+    "('bus', 'MV', 'elec')"][0]
+ebusTH = [obj for obj in SmEnOsReg.entities if obj.uid == 
+    "('bus', 'TH', 'elec')"][0]
+ebusSN = [obj for obj in SmEnOsReg.entities if obj.uid == 
+    "('bus', 'SN', 'elec')"][0]
+    
+SmEnOsReg.connect(ebusBB, ebusST, in_max=5880, out_max=5880,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusBB, ebusBE, in_max=3000, out_max=3000,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusBB, ebusSN, in_max=5040, out_max=5040,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusBB, ebusMV, in_max=3640, out_max=3640,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusMV, ebusST, in_max=1960, out_max=1960,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusTH, ebusST, in_max=1680, out_max=1680,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
+SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
+    eta=eta_elec['transmission'], transport_class=transport.Simple)
 
 # Optimize the energy system
 SmEnOsReg.optimize()
