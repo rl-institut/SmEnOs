@@ -13,6 +13,7 @@ from oemof.demandlib import demand as dm
 from oemof.demandlib import energy_buildings as eb
 from oemof.demandlib import bdew_heatprofile as bdew_heat
 from oemof.tools import helpers
+from oemof import db
 
 
 def get_parameters():
@@ -95,6 +96,7 @@ def get_parameters():
     eta_th_chp['oil'] = 0.40
     eta_th_chp['waste'] = 0.40
     eta_th_chp['biomass'] = 0.40
+    eta_th_chp['bhkw'] = 0.40
 
     eta_el_chp = {}
     eta_el_chp['lignite'] = 0.35
@@ -103,23 +105,31 @@ def get_parameters():
     eta_el_chp['oil'] = 0.40
     eta_el_chp['waste'] = 0.40
     eta_el_chp['biomass'] = 0.40
+    eta_el_chp['bhkw'] = 0.30
 
-
-    eta_chp_flex_total = {}
-    eta_chp_flex_total['lignite'] = 0.75
-    eta_chp_flex_total['hard_coal'] = 0.75
-    eta_chp_flex_total['natural_gas'] = 0.8
-    eta_chp_flex_total['oil'] = 0.8
-    eta_chp_flex_total['waste'] = 0.5
-    eta_chp_flex_total['biomass'] = 0.7
-
-    eta_chp_flex_el = {}
-    eta_chp_flex_el['lignite'] = [0.1, 0.3]
-    eta_chp_flex_el['hard_coal'] = [0.1, 0.3]
-    eta_chp_flex_el['natural_gas'] = [0.1, 0.3]
-    eta_chp_flex_el['oil'] = [0.1, 0.3]
-    eta_chp_flex_el['waste'] = [0.1, 0.3]
-    eta_chp_flex_el['biomass'] = [0.1, 0.3]
+    eta_chp_flex_el = {} # eta el in condensing mode SimpleExtractionCHP
+    eta_chp_flex_el['lignite'] = 0.3
+    eta_chp_flex_el['hard_coal'] = 0.3
+    eta_chp_flex_el['natural_gas'] = 0.4
+    eta_chp_flex_el['oil'] = 0.3
+    eta_chp_flex_el['waste'] = 0.3
+    eta_chp_flex_el['biomass'] = 0.3
+	
+    sigma_chp = {}    # power to heat ratio for SimpleExtractionCHP
+    sigma_chp['lignite'] = 1.2
+    sigma_chp['hard_coal'] = 1.2
+    sigma_chp['natural_gas'] = 1.2
+    sigma_chp['oil'] = 1.2
+    sigma_chp['waste'] = 1.2
+    sigma_chp['biomass'] = 1.2
+	
+    beta_chp = {}    # power loss index for SimpleExtractionCHP
+    beta_chp['lignite'] = 0.12
+    beta_chp['hard_coal'] = 0.12
+    beta_chp['natural_gas'] = 0.12
+    beta_chp['oil'] = 0.12
+    beta_chp['waste'] = 0.12
+    beta_chp['biomass'] = 0.12
 
     # costs [??]
     opex_var = {}
@@ -175,7 +185,7 @@ def get_parameters():
     c_rate['pumped_storage_out'] = 1
 
     return(co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp, 
-           eta_chp_flex_total, eta_chp_flex_el, opex_var, opex_fix, capex, 
+           eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex, 
            price, c_rate)
 
 
@@ -239,6 +249,28 @@ def get_demand(conn, regions):
         columns=['nuts_id', 'energy', 'sector', 'demand'])
     return df
 
+def get_biomass_between_5and10MW(conn, geometry):
+    sql = """
+    SELECT sum(p_nenn_kwp)
+    FROM oemof_test.energy_map as ee 
+    WHERE anlagentyp='Biomasse'
+    AND p_nenn_kwp >= 5000
+    AND p_nenn_kwp < 10000
+    AND st_contains(ST_GeomFromText('{wkt}',4326), ee.geom)
+        """.format(wkt=geometry.wkt)
+    cap = pd.DataFrame(conn.execute(sql).fetchall(), columns=['capacity'])
+    return cap
+
+def get_biomass_under_5MW(conn, geometry):
+    sql = """
+    SELECT sum(p_nenn_kwp)
+    FROM oemof_test.energy_map as ee 
+    WHERE anlagentyp='Biomasse'
+    AND p_nenn_kwp < 5000
+    AND st_contains(ST_GeomFromText('{wkt}',4326), ee.geom)
+        """.format(wkt=geometry.wkt)
+    cap = pd.DataFrame(conn.execute(sql).fetchall(), columns=['capacity'])
+    return cap
 
 def get_opsd_pps(conn, geometry):
     de_en = {
@@ -311,18 +343,16 @@ def entity_exists(esystem, uid):
 
 def create_opsd_summed_objects(esystem, region, pp, **kwargs):
 
-    'Creates entities for each type generation'
+    'Creates entities for each type of generation'
 
     typeofgen = kwargs.get('typeofgen')
-    typeofgen.append('biomass')
     ror_cap = kwargs.get('ror_cap')
     pumped_storage = kwargs.get('pumped_storage')
-#    chp_faktor = kwargs.get('chp_faktor', 0.2) 
     chp_faktor_flex = kwargs.get('chp_faktor_flex', 0.84)
     cap_initial = kwargs.get('cap_initial', 0)
 
     (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp, 
-         eta_chp_flex_total, eta_chp_flex_el, opex_var, opex_fix, capex, 
+         eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex, 
          price, c_rate) = get_parameters()
         
     # replace NaN with 0
@@ -331,8 +361,21 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
 
     capacity = {}
     capacity_chp_el = {}
-#    capacity_chp_th = {}
-    efficiency = {}
+    
+#_______________________________________get biomass under 10 MW from energymap
+    conn = db.connection()
+    p_bio = get_biomass_between_5and10MW(conn, region.geom)
+    p_bio_bhkw = get_biomass_under_5MW(conn, region.geom)
+    p_bio5to10 = float(p_bio['capacity']) / 1000 #from kW to MW
+    p_el_bhkw = float(p_bio_bhkw['capacity']) / 1000 # from kW to MW
+    p_th_bhkw = p_el_bhkw * eta_th_chp['bhkw'] / eta_el_chp['bhkw']
+    print(p_bio5to10)
+    print(p_el_bhkw)
+    
+#___________________________________________________________
+
+#    efficiency = {} 
+    
     for typ in typeofgen:
         # capacity for simple transformer (chp = no)
         capacity[typ] = sum(pp[pp['type'].isin([typ])][pp['status'].isin([
@@ -344,26 +387,45 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             'cap_el_uba']) + sum(pp[pp['type'].isin([typ])][pp['status'].isin([
             'operating'])][pp['chp'].isin(['yes'])][pp['cap_th_uba'].isin(
             [0])]['cap_el'])
-        # th capacity for chp transformer (cap_th_uba + cap_el*Faktor
-           # (where cap_th_uba=0 and chp=yes))
-#        capacity_chp_th[typ] = float(sum(pp[pp['type'].isin([typ])][pp[
-#            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][
-#            'cap_th_uba'])) + float(sum(pp[pp['type'].isin([typ])][pp[
-#            'status'].isin(['operating'])][pp['chp'].isin(['yes'])][pp[
-#            'cap_th_uba'].isin([0])]['cap_el']) * chp_faktor)
 
-        # efficiency only for simple transformer
-        #TODO soll das so bleiben???
+        # efficiency only for simple transformer from OPSD-List
+
 #        efficiency[typ] = np.mean(pp[pp['type'].isin([typ])][pp[
 #        'status'].isin(['operating'])][pp['chp'].isin(['no'])]['efficiency'])
 
+        # choose the right bus for type of generation (biomass: regional bus)
+        # and add biomass capacity from energymap between 5 and 10 MW
+        if typ == 'biomass':
+            resourcebus = [obj for obj in esystem.entities if obj.uid == (
+                'bus', region.name, typ)]
+            
+            capacity_chp_el[typ] = capacity_chp_el[typ] + p_bio5to10
+            
+            #create biomass bhkw transformer (under 5 MW)           
+            transformer.CHP(
+                uid=('transformer', region.name, typ, 'bhkw'),
+                # takes from resource bus
+                inputs=resourcebus,
+                # puts in electricity and heat bus
+                outputs=[[obj for obj in region.entities if obj.uid == (
+                    'bus', region.name, 'elec')][0],
+                    [obj for obj in region.entities if obj.uid == (
+                    'bus', region.name, 'dh')][0]],
+#TODO: Wärme auf den richtigen bus legen!!!!
+                in_max=[None],
+                out_max=[p_el_bhkw,p_th_bhkw],
+                eta=[eta_el_chp['bhkw'], eta_th_chp['bhkw']],
+                opex_var=opex_var[typ],
+                regions=[region])
+        else: # not biomass
+            resourcebus = [obj for obj in esystem.entities if obj.uid == (
+                'bus', 'global', typ)]
+
         if capacity_chp_el[typ] > 0:
+            
             transformer.CHP(
                 uid=('transformer', region.name, typ, 'chp'),
-                # nimmt von ressourcenbus
-                inputs=[obj for obj in esystem.entities if obj.uid == (
-                    'bus', 'global', typ)],
-                # speist auf strombus und fernwärmebus ein
+                inputs=resourcebus,
                 outputs=[[obj for obj in region.entities if obj.uid == (
                     'bus', region.name, 'elec')][0],
                     [obj for obj in region.entities if obj.uid == (
@@ -371,40 +433,37 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                 in_max=[None],
                 out_max=get_out_max_chp(capacity_chp_el[typ], chp_faktor_flex, 
                                         eta_th_chp[typ], eta_el_chp[typ]),
-                eta=[eta_elec[typ], eta_th[typ]],
+                eta=[eta_el_chp[typ], eta_th_chp[typ]],
                 opex_var=opex_var[typ],
                 regions=[region])
+                
 
-            transformer.VariableEfficiencyCHP(
-                uid=('transformer', region.name, typ, 'VEchp'),
-                # nimmt von ressourcenbus
-                inputs=[obj for obj in esystem.entities if obj.uid == (
-                    'bus', 'global', typ)],
-                # speist auf strombus und fernwärmebus ein
+            transformer.SimpleExtractionCHP(
+                uid=('transformer', region.name, typ, 'SEchp'),
+                inputs=resourcebus,
                 outputs=[[obj for obj in region.entities if obj.uid == (
                     'bus', region.name, 'elec')][0],
                     [obj for obj in region.entities if obj.uid == (
                     'bus', region.name, 'dh')][0]],
                 in_max=[None],
                 out_max=get_out_max_chp_flex(capacity_chp_el[typ], 
-                                chp_faktor_flex, eta_chp_flex_total[typ], 
-                                eta_chp_flex_el[typ]),
-                eta_total=[eta_chp_flex_total[typ]],
-                eta_el=[eta_chp_flex_el[typ]],
+                                chp_faktor_flex, sigma_chp[typ]),
+                out_min=[0.0, 0.0],
+                eta_el_cond=eta_chp_flex_el[typ],
+                sigma=sigma_chp[typ],	#power to heat ratio in backpressure mode
+                beta=beta_chp[typ],		#power loss index
                 opex_var=opex_var[typ],
                 regions=[region])
 
         if capacity[typ] > 0:
             transformer.Simple(
                 uid=('transformer', region.name, typ),
-                # nimmt von ressourcenbus
-                inputs=[obj for obj in esystem.entities if obj.uid == (
-                    'bus', 'global', typ)],
+                inputs=resourcebus,
                 outputs=[[obj for obj in region.entities if obj.uid == (
                 'bus', region.name, 'elec')][0]],
                 in_max=[None],
                 out_max=[float(capacity[typ])],
-                eta=efficiency[typ],
+                eta=[eta_elec[typ]],
                 opex_var=opex_var[typ],
                 regions=[region])
 
@@ -454,17 +513,16 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             out_max=[capacity[typ]],  # inst. Leistung!
             regions=[region])
             
-def get_out_max_chp(capacity_chp_el, chp_faktor_flex, eta_th_chp, eta_el_chp):
+def get_out_max_chp(capacity_chp_el, chp_faktor_flex, 
+                    eta_th_chp, eta_el_chp):
     out_max_el = float(capacity_chp_el) * (1-chp_faktor_flex)
     out_max_th = out_max_el * eta_th_chp / eta_el_chp
     out = [out_max_el, out_max_th]
     return out
     
-def get_out_max_chp_flex(capacity_chp_el, chp_faktor_flex, eta_chp_flex_total, 
-                         eta_chp_flex_el):
+def get_out_max_chp_flex(capacity_chp_el, chp_faktor_flex, sigma_chp):
     out_max_el = float(capacity_chp_el) * (chp_faktor_flex)
-    out_max_th = out_max_el * (
-        eta_chp_flex_total - eta_chp_flex_el[0]) / eta_chp_flex_el[0]
+    out_max_th = out_max_el / sigma_chp
     out = [out_max_el, out_max_th]
     return out
 
