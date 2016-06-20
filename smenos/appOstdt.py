@@ -33,6 +33,8 @@ from oemof.core.network.entities.components import sources as source
 import helper_SmEnOs as hls
 import feedin_offs
 
+
+
 # Basic inputs
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
@@ -40,6 +42,10 @@ year = 2010
 time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
 overwrite = True
 conn = db.connection()
+Offshore_Scenario = 2016 # which parks are already running?
+cap_initial = 0.0
+chp_faktor_flex = 0.84  # share of flexible generation of CHP
+
 
 # Create a simulation object
 simulation = es.Simulation(
@@ -201,7 +207,7 @@ typeofgen_global.append('biomass')
 # create fixedSource object for Offshore WindPower
 feedin_df, cap = feedin_offs.Feedin().aggregate_cap_val(
     conn, year=year, schema='oemof_test', table='baltic_wind_farms', 
-    bustype='elec', **site_os)
+    start_year=Offshore_Scenario, bustype='elec', **site_os)
 
 source.FixedSource(
             uid=('FixedSrc', 'MV', 'Offshore'),
@@ -227,12 +233,12 @@ for region in SmEnOsReg.regions:
             out_max=[cap[stype]])
 
     # Get power plants from database and write them into a DataFrame
-    #TODO replace hard coded  cap_initial
+
     pps_df = hls.get_opsd_pps(conn, region.geom)
     hls.create_opsd_summed_objects(
             SmEnOsReg, region, pps_df,
-            cap_initial=0.0,
-            chp_faktor_flex=0.84, # share of flexible generation of CHP
+            cap_initial=cap_initial,
+            chp_faktor_flex=chp_faktor_flex, # share of flexible generation of CHP
             typeofgen=typeofgen_global,
             ror_cap=ror_cap,
             pumped_storage=pumped_storage,
@@ -275,6 +281,7 @@ ebusTH = [obj for obj in SmEnOsReg.entities if obj.uid ==
 ebusSN = [obj for obj in SmEnOsReg.entities if obj.uid == 
     "('bus', 'SN', 'elec')"][0]
     
+#TODO replace transport capacities
 SmEnOsReg.connect(ebusBB, ebusST, in_max=5880, out_max=5880,
     eta=eta_elec['transmission'], transport_class=transport.Simple)
 SmEnOsReg.connect(ebusBB, ebusBE, in_max=3000, out_max=3000,

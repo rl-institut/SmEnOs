@@ -345,11 +345,13 @@ def get_pumped_storage_pps(conn, regions):
     return df
     
     
-def get_offshore_pps(conn, schema, table):
+def get_offshore_pps(conn, schema, table, start_year):
     sql = """
         SELECT farm_capacity, st_astext(geom)
-        FROM {schema}.{table};
-        """.format(**{'schema': schema, 'table': table})
+        FROM {schema}.{table}
+        WHERE start_year <= {start_year}
+        """.format(**{'schema': schema, 'table': table, 
+                      'start_year':start_year})
     pps = pd.DataFrame(conn.execute(sql).fetchall())
     return pps
 

@@ -63,7 +63,8 @@ class Feedin:
 
     def get_timeseries(self, conn, **kwargs):
         # get capacities and geometries from db 
-        os_pps = hls.get_offshore_pps(conn, kwargs['schema'], kwargs['table'])      
+        os_pps = hls.get_offshore_pps(conn, kwargs['schema'], 
+                                      kwargs['table'], kwargs['start_year'])      
 
         wind_df = 0
         wind_cap = {}
