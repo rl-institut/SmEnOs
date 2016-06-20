@@ -14,6 +14,7 @@ from oemof.demandlib import energy_buildings as eb
 from oemof.demandlib import bdew_heatprofile as bdew_heat
 from oemof.tools import helpers
 from oemof import db
+from shapely.wkt import loads as wkt_loads
 
 
 def get_parameters():
@@ -219,6 +220,13 @@ def get_res_parameters():
         }
     return site
 
+def get_offshore_parameters(conn):
+    site = {'h_hub': 80,
+        'd_rotor': 120,
+        'wka_model': 'SIEMENS SWT 3.6 120',
+        }
+
+    return site
 
 def get_bdew_heatprofile_parameters():
     #TODO Werte recherchieren
@@ -335,6 +343,15 @@ def get_pumped_storage_pps(conn, regions):
         conn.execute(sql).fetchall(), columns=['state_short', 'power_mw',
             'capacity_mwh'])
     return df
+    
+    
+def get_offshore_pps(conn, schema, table):
+    sql = """
+        SELECT farm_capacity, st_astext(geom)
+        FROM {schema}.{table};
+        """.format(**{'schema': schema, 'table': table})
+    pps = pd.DataFrame(conn.execute(sql).fetchall())
+    return pps
 
 
 def entity_exists(esystem, uid):
@@ -369,9 +386,7 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
     p_bio5to10 = float(p_bio['capacity']) / 1000 #from kW to MW
     p_el_bhkw = float(p_bio_bhkw['capacity']) / 1000 # from kW to MW
     p_th_bhkw = p_el_bhkw * eta_th_chp['bhkw'] / eta_el_chp['bhkw']
-    print(p_bio5to10)
-    print(p_el_bhkw)
-    
+   
 #___________________________________________________________
 
 #    efficiency = {} 

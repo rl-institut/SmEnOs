@@ -31,6 +31,7 @@ from oemof.core.network.entities.components import transports as transport
 from oemof.core.network.entities.components import sources as source
 
 import helper_SmEnOs as hls
+import feedin_offs
 
 # Basic inputs
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -97,91 +98,94 @@ for region in SmEnOsReg.regions:
     hls.call_el_demandlib(demand, method='scale_profile_csv', year=year,
         path='', filename='50Hertz2010_y.csv', annual_elec_demand=el_demand)
 
-## Add heat sinks for each region, sector and ressource
-#heat_params = hls.get_bdew_heatprofile_parameters()
-#for region in SmEnOsReg.regions:
-#    # get regional heat demand for different ressources
-#    nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
-#    demand_sectors = demands_df.query('nuts_id==@nutID and energy=="heat"')
-#    # get temperature of region as np array [°C]
-#    multiWeather = coastdat.get_weather(conn, region.geom, year)
-#    temp = np.zeros([len(multiWeather[0].data.index), ])
-#    for weather in multiWeather:
-#        temp += weather.data['temp_air'].as_matrix()
-#    temp = pd.Series(temp / len(multiWeather) - 273.15)
-#    region.temp = temp
-#    # residential sector
-#    sec = 'residential'
-#    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
-#    region.share_efh = heat_params.ix[region.name]['share_EFH']
-#    region.building_class = heat_params.ix[region.name]['building_class']
-#    region.wind_class = heat_params.ix[region.name]['wind_class']
-#    for ressource in list(demand_sector.keys()):
-#        if demand_sector[ressource] != 0:
-#            # create bus
-#            Bus(uid=('bus', region.name, sec, ressource), type=ressource,
-#                price=0, regions=[region], excess=False)
-#            # create sink
-#            demand = sink.Simple(uid=('demand', region.name, sec, ressource),
-#                inputs=[obj for obj in SmEnOsReg.entities
-#                    if obj.uid == ('bus', region.name, sec, ressource)],
-#                region=region)
-#            # create heat load profile and write to sink object
-#            # heat load in [MWh/a]
-#            #TODO Bei WP Heizung und WW getrennt...
-#            profile_efh = hls.call_heat_demandlib(region, year,
-#                annual_heat_demand=demand_sector[ressource] * region.share_efh,
-#                shlp_type='EFH', ww_incl=True)
-#            profile_mfh = hls.call_heat_demandlib(region, year,
-#                annual_heat_demand=(demand_sector[ressource] *
-#                    (1 - region.share_efh)),
-#                shlp_type='MFH', ww_incl=True)
-#            demand.val = (profile_efh + profile_mfh) * eta_th[ressource]
-#    # commercial sector
-#    sec = 'commercial'
-#    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
-#    for ressource in list(demand_sector.keys()):
-#        print(ressource)
-#        if demand_sector[ressource] != 0:
-#            # create bus
-#            Bus(uid=('bus', region.name, sec, ressource), type=ressource,
-#                price=0, regions=[region], excess=False)
-#            # create sink
-#            demand = sink.Simple(uid=('demand', region.name, sec, ressource),
-#                inputs=[obj for obj in SmEnOsReg.entities
-#                    if obj.uid == ('bus', region.name, sec, ressource)],
-#                region=region)
-#            # create heat load profile and write to sink object
-#            # heat load in [MWh/a]
-#            region.wind_class = heat_params.ix[region.name]['wind_class']
-#            region.building_class = None
-#            demand.val = hls.call_heat_demandlib(region, year,
-#                annual_heat_demand=demand_sector[ressource],
-#                shlp_type='GHD', ww_incl=True) * eta_th[ressource]
-#    # industrial sector
-#    sec = 'industrial'
-#    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
-#    for ressource in list(demand_sector.keys()):
-#        if demand_sector[ressource] != 0:
-#            # create bus
-#            Bus(uid=('bus', region.name, sec, ressource), type=ressource,
-#                price=0, regions=[region], excess=False)
-#            # create sink
-#            demand = sink.Simple(uid=('demand', region.name, sec, ressource),
-#                inputs=[obj for obj in SmEnOsReg.entities
-#                    if obj.uid == ('bus', region.name, sec, ressource)],
-#                region=region)
-#            # create heat load profile and write to sink object
-#            # heat load in [MWh/a]
-#            #TODO Umwandlungswirkungsgrade beachten!
-#            #TODO Industrielastprofil einfügen
-#            am, pm, profile_factors = hls.ind_profile_parameters()
-#            demand.val = hls.call_ind_profile(year, demand_sector[ressource],
-#                am=am, pm=pm, profile_factors=profile_factors)
-#            ax = demand.val.plot()
-#            ax.set_xlabel("Hour of the year")
-#            ax.set_ylabel("Heat demand in MW")
-#            plt.show()
+# Add heat sinks for each region, sector and ressource
+heat_params = hls.get_bdew_heatprofile_parameters()
+for region in SmEnOsReg.regions:
+    # get regional heat demand for different ressources
+    nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
+    demand_sectors = demands_df.query('nuts_id==@nutID and energy=="heat"')
+    # get temperature of region as np array [°C]
+    multiWeather = coastdat.get_weather(conn, region.geom, year)
+    temp = np.zeros([len(multiWeather[0].data.index), ])
+    for weather in multiWeather:
+        temp += weather.data['temp_air'].as_matrix()
+    temp = pd.Series(temp / len(multiWeather) - 273.15)
+    region.temp = temp
+    # residential sector
+    sec = 'residential'
+    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
+    region.share_efh = heat_params.ix[region.name]['share_EFH']
+    region.building_class = heat_params.ix[region.name]['building_class']
+    region.wind_class = heat_params.ix[region.name]['wind_class']
+    for ressource in list(demand_sector.keys()):
+        if demand_sector[ressource] != 0:
+            # create bus
+            Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                price=0, regions=[region], excess=False)
+            # create sink
+            demand = sink.Simple(uid=('demand', region.name, sec, ressource),
+                inputs=[obj for obj in SmEnOsReg.entities
+                    if obj.uid == ('bus', region.name, sec, ressource)],
+                region=region)
+            #TODO: remove district heating buses and use the central dh bus 
+                # for each region (uid=('bus', region.name, 'dh')), 
+                # also change inputs for district heating sinks
+            # create heat load profile and write to sink object
+            # heat load in [MWh/a]
+            #TODO Bei WP Heizung und WW getrennt...
+            profile_efh = hls.call_heat_demandlib(region, year,
+                annual_heat_demand=demand_sector[ressource] * region.share_efh,
+                shlp_type='EFH', ww_incl=True)
+            profile_mfh = hls.call_heat_demandlib(region, year,
+                annual_heat_demand=(demand_sector[ressource] *
+                    (1 - region.share_efh)),
+                shlp_type='MFH', ww_incl=True)
+            demand.val = (profile_efh + profile_mfh) * eta_th[ressource]
+    # commercial sector
+    sec = 'commercial'
+    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
+    for ressource in list(demand_sector.keys()):
+        print(ressource)
+        if demand_sector[ressource] != 0:
+            # create bus
+            Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                price=0, regions=[region], excess=False)
+            # create sink
+            demand = sink.Simple(uid=('demand', region.name, sec, ressource),
+                inputs=[obj for obj in SmEnOsReg.entities
+                    if obj.uid == ('bus', region.name, sec, ressource)],
+                region=region)
+            # create heat load profile and write to sink object
+            # heat load in [MWh/a]
+            region.wind_class = heat_params.ix[region.name]['wind_class']
+            region.building_class = None
+            demand.val = hls.call_heat_demandlib(region, year,
+                annual_heat_demand=demand_sector[ressource],
+                shlp_type='GHD', ww_incl=True) * eta_th[ressource]
+    # industrial sector
+    sec = 'industrial'
+    demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
+    for ressource in list(demand_sector.keys()):
+        if demand_sector[ressource] != 0:
+            # create bus
+            Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                price=0, regions=[region], excess=False)
+            # create sink
+            demand = sink.Simple(uid=('demand', region.name, sec, ressource),
+                inputs=[obj for obj in SmEnOsReg.entities
+                    if obj.uid == ('bus', region.name, sec, ressource)],
+                region=region)
+            # create heat load profile and write to sink object
+            # heat load in [MWh/a]
+            #TODO Umwandlungswirkungsgrade beachten!
+            #TODO Industrielastprofil einfügen
+            am, pm, profile_factors = hls.ind_profile_parameters()
+            demand.val = hls.call_ind_profile(year, demand_sector[ressource],
+                am=am, pm=pm, profile_factors=profile_factors)
+            ax = demand.val.plot()
+            ax.set_xlabel("Hour of the year")
+            ax.set_ylabel("Heat demand in MW")
+            plt.show()
 
 # Get run-of-river and pumped storage capacities
 # ror_cap is Series with state abbr, capacity_mw and energy_mwh
@@ -190,24 +194,37 @@ ror_cap = hls.get_hydro_energy(conn, tuple(regionsOstdt['abbr']))
 pumped_storage = hls.get_pumped_storage_pps(conn, tuple(regionsOstdt['abbr']))
 # renewable parameters
 site = hls.get_res_parameters()
+site_os = hls.get_offshore_parameters(conn)
 
-# Create entity objects for each region
 typeofgen_global.append('biomass')
 
+# create fixedSource object for Offshore WindPower
+feedin_df, cap = feedin_offs.Feedin().aggregate_cap_val(
+    conn, year=year, schema='oemof_test', table='baltic_wind_farms', 
+    bustype='elec', **site_os)
+
+source.FixedSource(
+            uid=('FixedSrc', 'MV', 'Offshore'),
+            outputs=[obj for obj in region.entities if obj.uid == (
+                'bus', 'MV', 'elec')],
+            val=feedin_df,
+            out_max=[cap])
+
+# Create entity objects for each region
 for region in SmEnOsReg.regions:
     logging.info('Processing region: {0}'.format(region.name))
 
     #TODO Problem mit Erdwärme??!!
 
-#    , cap = feedin_pg.Feedin().aggregate_cap_val(
-#        conn, region=region, year=year, bustype='elec', **site)
-#    for stype in feedin_df.keys():
-#        source.FixedSource(
-#            uid=('FixedSrc', region.name, stype),
-#            outputs=[obj for obj in region.entities if obj.uid == (
-#                'bus', region.name, 'elec')],
-#            val=feedin_df[stype],
-#            out_max=[cap[stype]])
+    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
+        conn, region=region, year=year, bustype='elec', **site)
+    for stype in feedin_df.keys():
+        source.FixedSource(
+            uid=('FixedSrc', region.name, stype),
+            outputs=[obj for obj in region.entities if obj.uid == (
+                'bus', region.name, 'elec')],
+            val=feedin_df[stype],
+            out_max=[cap[stype]])
 
     # Get power plants from database and write them into a DataFrame
     #TODO replace hard coded  cap_initial
@@ -274,6 +291,7 @@ SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
     eta=eta_elec['transmission'], transport_class=transport.Simple)
 SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
     eta=eta_elec['transmission'], transport_class=transport.Simple)
+
 
 # Optimize the energy system
 SmEnOsReg.optimize()
