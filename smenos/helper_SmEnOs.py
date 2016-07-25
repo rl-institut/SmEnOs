@@ -39,6 +39,7 @@ def get_parameters():
 
     # efficiencies [-]
     eta_elec = parameters['eta_elec']
+    eta_elec['transmission'] = 0.9  # TODO: in csv
     eta_th = parameters['eta_th']
     eta_el_chp = parameters['eta_el_chp']
     eta_th_chp = parameters['eta_th_chp']
@@ -151,6 +152,7 @@ def get_biomass_under_5MW(conn, geometry):
     cap = pd.DataFrame(conn.execute(sql).fetchall(), columns=['capacity'])
     return cap
 
+
 def get_opsd_pps(conn, geometry):
     de_en = {
         'Braunkohle': 'lignite',
@@ -179,16 +181,23 @@ def get_opsd_pps(conn, geometry):
     translator = lambda x: de_en[x]
 
     sql = """
-        SELECT fuel, status, chp, capacity, capacity_uba, chp_capacity_uba,
-        efficiency_estimate
-        FROM oemof_test.kraftwerke_de_opsd as pp
+        SELECT fuel, technology, status, chp, capacity, capacity_uba,
+        chp_capacity_uba, efficiency_estimate
+        FROM oemof_test.kraftwerke_de_opsd_2 as pp
         WHERE st_contains(
         ST_GeomFromText('{wkt}',4326), ST_Transform(pp.geom, 4326))
         """.format(wkt=geometry.wkt)
     df = pd.DataFrame(
-        conn.execute(sql).fetchall(), columns=['type', 'status', 'chp',
-            'cap_el', 'cap_el_uba', 'cap_th_uba', 'efficiency'])
+        conn.execute(sql).fetchall(), columns=['type', 'technology', 'status',
+                'chp', 'cap_el', 'cap_el_uba', 'cap_th_uba', 'efficiency'])
     df['type'] = df['type'].apply(translator)
+
+    #  rename cc-gasturbines in df
+    for row in df.index:
+        if df.loc[row]['technology'] == 'CC' and df.loc[
+            row]['type'] == 'natural_gas':
+                df.loc[row, 'type'] = 'natural_gas_cc'
+
     return df
 
 
@@ -241,10 +250,10 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
     chp_faktor_flex = kwargs.get('chp_faktor_flex', 0.84)
     cap_initial = kwargs.get('cap_initial', 0)
 
-    (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp, 
-         eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex, 
-         c_rate_in, c_rate_out, eta_in, eta_out, 
-         cap_loss) = get_parameters()
+    (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
+    eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
+    c_rate_in, c_rate_out, eta_in, eta_out,
+    cap_loss) = get_parameters()
         
     # replace NaN with 0
     mask = pd.isnull(pp)
@@ -374,8 +383,8 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             cap_min=0,
             in_max=[power],
             out_max=[power],
-            eta_in=eta_elec[typ + '_in'],
-            eta_out=eta_elec[typ + '_out'],
+            eta_in=eta_in[typ],
+            eta_out=eta_out[typ],
             c_rate_in=c_rate_in[typ],
             c_rate_out=c_rate_out[typ],
             opex_var=opex_var[typ],
@@ -440,7 +449,8 @@ def call_el_demandlib(demand, method, year, **kwargs):
     demand :
     method : Method which is to be applied for the demand calculation
     '''
-    demand.val = dm.electrical_demand(method,
+#    demand.val = dm.electrical_demand(method,
+    demand_values = dm.electrical_demand(method,
                          year=year,
                          annual_elec_demand=kwargs.get(
                          'annual_elec_demand'),
@@ -462,6 +472,7 @@ def call_el_demandlib(demand, method, year, **kwargs):
                          'comm_number_of_employees_state'),
                          comm_number_of_employees_region=kwargs.get(
                          'comm_number_of_employees_region')).elec_demand
+    demand.val = demand_values['load']
     return demand
 
 
