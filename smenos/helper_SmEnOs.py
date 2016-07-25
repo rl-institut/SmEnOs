@@ -20,174 +20,45 @@ from shapely.wkt import loads as wkt_loads
 def get_parameters():
     'returns emission and cost parameters'
 
-    # emission factors [t/MWh]
-    co2_emissions = {}
-    co2_emissions['lignite'] = 0.111 * 3.6
-    co2_emissions['hard_coal'] = 0.0917 * 3.6
-    co2_emissions['natural_gas'] = 0.0556 * 3.6
-    co2_emissions['oil'] = 0.0750 * 3.6
-    co2_emissions['waste'] = 0.1
-    co2_emissions['biomass'] = 0.1
-    co2_emissions['pumped_storage'] = 0.001
+    read_parameter = pd.read_csv(
+            'simulation_parameter_App_SmEnOs_csv.csv',
+            delimiter=';', index_col=0)
+    parameters = {}
 
-    # emission factors [t/MW]
-    co2_fix = {}
-    co2_fix['lignite'] = 0.1
-    co2_fix['hard_coal'] = 0.1
-    co2_fix['natural gas'] = 0.1
-    co2_fix['oil'] = 0.1
-    co2_fix['waste'] = 0.1
-    co2_fix['pumped_storage'] = 0.1
-        # decentralized pp
-    co2_fix['lignite_dec'] = 0.1
-    co2_fix['hard_coal_dec'] = 0.1
-    co2_fix['biomass_dec'] = 0.1
-    co2_fix['mineral_oil_dec'] = 0.1
-    co2_fix['gas_dec'] = 0.1
-    co2_fix['solar_heat_dec'] = 0.1
-    co2_fix['heat_pump_dec'] = 0.1
-    co2_fix['waste_dec'] = 0.1
-    co2_fix['el_heat_dec'] = 0.1
-        # renewables
-    co2_fix['pv'] = 0.1
-    co2_fix['wind'] = 0.1
-    co2_fix['waste_dec'] = 0.1
-    co2_fix['biomass'] = 0.1
-    co2_fix['waste_dec'] = 0.1
-    co2_fix['hydro'] = 0.1
+    for col in read_parameter.columns:
+        parameters[col] = {}
+        for row in read_parameter.index:
+            try:
+                parameters[col][row] = float(read_parameter.loc[row][col])
+            except:
+                parameters[col][row] = read_parameter.loc[row][col]
+
+    # emission factors [t/MWh]
+    co2_emissions = parameters['co2_var']
+    co2_fix = parameters['co2_fix']
 
     # efficiencies [-]
-    eta_elec = {}
-    eta_elec['lignite'] = 0.35
-    eta_elec['hard_coal'] = 0.39
-    eta_elec['natural_gas'] = 0.45
-    eta_elec['oil'] = 0.40
-    eta_elec['waste'] = 0.40
-    eta_elec['biomass'] = 0.40
-    eta_elec['pumped_storage'] = 0.40
-    eta_elec['pumped_storage_in'] = 0.98
-    eta_elec['pumped_storage_out'] = 0.98
-    eta_elec['transmission'] = 0.997
+    eta_elec = parameters['eta_elec']
+    eta_th = parameters['eta_th']
+    eta_el_chp = parameters['eta_el_chp']
+    eta_th_chp = parameters['eta_th_chp']
+    eta_chp_flex_el = parameters['eta_chp_flex_el']
+    sigma_chp = parameters['sigma_chp']
+    beta_chp = parameters['beta_chp']
 
-    eta_th = {}
-    eta_th['lignite'] = 0.35
-    eta_th['hard_coal'] = 0.39
-    eta_th['natural_gas'] = 0.45
-    eta_th['oil'] = 0.40
-    eta_th['waste'] = 0.40
-    eta_th['biomass'] = 0.40
-    eta_th['pumped_storage'] = 0.40
-    
-            # decentralized pp
-    eta_th['dh'] = 0.7  #TODO In Abhängigkeit der Region?
-    eta_th['lignite_dec'] = 0.8
-    eta_th['hard_coal_dec'] = 0.8
-    eta_th['biomass_dec'] = 0.8
-    eta_th['mineral_oil_dec'] = 0.1
-    eta_th['gas_dec'] = 0.1
-    eta_th['solar_heat_dec'] = 0.5
-    eta_th['heat_pump_dec'] = 1.5  # aus Energieb.-Glossar Verhältnis 1/3 zu 2/3
-    eta_th['waste_dec'] = 0.7
-    eta_th['el_heat_dec'] = 0.9
+    opex_var = parameters['opex_var']
+    opex_fix = parameters['opex_fix']
+    capex = parameters['capex']
 
-    eta_th_chp = {}
-    eta_th_chp['lignite'] = 0.35
-    eta_th_chp['hard_coal'] = 0.39
-    eta_th_chp['natural_gas'] = 0.45
-    eta_th_chp['oil'] = 0.40
-    eta_th_chp['waste'] = 0.40
-    eta_th_chp['biomass'] = 0.40
-    eta_th_chp['bhkw'] = 0.40
+    c_rate_in = parameters['c_rate_in']
+    c_rate_out = parameters['c_rate_out']
+    eta_in = parameters['eta_in']
+    eta_out = parameters['eta_out']
+    cap_loss = parameters['cap_loss']
 
-    eta_el_chp = {}
-    eta_el_chp['lignite'] = 0.35
-    eta_el_chp['hard_coal'] = 0.39
-    eta_el_chp['natural_gas'] = 0.45
-    eta_el_chp['oil'] = 0.40
-    eta_el_chp['waste'] = 0.40
-    eta_el_chp['biomass'] = 0.40
-    eta_el_chp['bhkw'] = 0.30
-
-    eta_chp_flex_el = {} # eta el in condensing mode SimpleExtractionCHP
-    eta_chp_flex_el['lignite'] = 0.3
-    eta_chp_flex_el['hard_coal'] = 0.3
-    eta_chp_flex_el['natural_gas'] = 0.4
-    eta_chp_flex_el['oil'] = 0.3
-    eta_chp_flex_el['waste'] = 0.3
-    eta_chp_flex_el['biomass'] = 0.3
-	
-    sigma_chp = {}    # power to heat ratio for SimpleExtractionCHP
-    sigma_chp['lignite'] = 1.2
-    sigma_chp['hard_coal'] = 1.2
-    sigma_chp['natural_gas'] = 1.2
-    sigma_chp['oil'] = 1.2
-    sigma_chp['waste'] = 1.2
-    sigma_chp['biomass'] = 1.2
-	
-    beta_chp = {}    # power loss index for SimpleExtractionCHP
-    beta_chp['lignite'] = 0.12
-    beta_chp['hard_coal'] = 0.12
-    beta_chp['natural_gas'] = 0.12
-    beta_chp['oil'] = 0.12
-    beta_chp['waste'] = 0.12
-    beta_chp['biomass'] = 0.12
-
-    # costs [??]
-    opex_var = {}
-    opex_var['lignite'] = 22
-    opex_var['hard_coal'] = 25
-    opex_var['natural_gas'] = 22
-    opex_var['oil'] = 22
-    opex_var['solar_power'] = 1
-    opex_var['wind_power'] = 1
-    opex_var['waste'] = 1
-    opex_var['biomass'] = 1
-    opex_var['pumped_storage'] = 1
-    opex_var['run_of_river'] = 1
-    
-    opex_fix = {}
-    opex_fix['lignite'] = 22
-    opex_fix['hard_coal'] = 25
-    opex_fix['natural_gas'] = 22
-    opex_fix['oil'] = 22
-    opex_fix['solar_power'] = 1
-    opex_fix['wind_power'] = 1
-    opex_fix['waste'] = 1
-    opex_fix['biomass'] = 1
-    opex_fix['pumped_storage'] = 1
-    opex_fix['run_of_river'] = 1
-
-    capex = {}
-    capex['lignite'] = 22
-    capex['hard_coal'] = 25
-    capex['natural_gas'] = 22
-    capex['oil'] = 22
-    capex['solar_power'] = 1
-    capex['wind_power'] = 1
-    capex['waste'] = 1
-    capex['biomass'] = 1
-    capex['pumped_storage'] = 1
-    capex['run_of_river'] = 1
-
-    # price for ressource
-    price = {}
-    price['lignite'] = 60
-    price['hard_coal'] = 60
-    price['natural_gas'] = 60
-    price['oil'] = 60
-    price['waste'] = 60
-    price['biomass'] = 60
-    price['pumped_storage'] = 0
-    price['hydro_power'] = 0
-
-    # C-rate for storages
-    c_rate = {}
-    c_rate['pumped_storage_in'] = 1
-    c_rate['pumped_storage_out'] = 1
-
-    return(co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp, 
-           eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex, 
-           price, c_rate)
+    return(co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
+           eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
+           c_rate_in, c_rate_out, eta_in, eta_out, cap_loss)
 
 
 def get_res_parameters():
@@ -372,7 +243,8 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
 
     (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp, 
          eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex, 
-         price, c_rate) = get_parameters()
+         c_rate_in, c_rate_out, eta_in, eta_out, 
+         cap_loss) = get_parameters()
         
     # replace NaN with 0
     mask = pd.isnull(pp)
@@ -504,8 +376,8 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             out_max=[power],
             eta_in=eta_elec[typ + '_in'],
             eta_out=eta_elec[typ + '_out'],
-            c_rate_in=c_rate[typ + '_in'],
-            c_rate_out=c_rate[typ + '_out'],
+            c_rate_in=c_rate_in[typ],
+            c_rate_out=c_rate_out[typ],
             opex_var=opex_var[typ],
             capex=capex[typ],
             cap_initial=cap_initial,

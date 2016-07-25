@@ -42,7 +42,8 @@ year = 2010
 time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
 overwrite = True
 conn = db.connection()
-Offshore_Scenario = 2016 # which parks are already running?
+Offshore_Scenario = 2016 # which parks are already running in this year 
+							# there are some planned for 2017, 18 and 19
 cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
 
@@ -74,7 +75,8 @@ for index, row in regionsOstdt.iterrows():
 typeofgen_global = ['natural_gas', 'lignite', 'hard_coal', 'oil', 'waste']
 (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp, 
          eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex, 
-         price, c_rate) = hls.get_parameters()
+         c_rate_in, c_rate_out, eta_in, eta_out, 
+         cap_loss) = hls.get_parameters()
 for typ in typeofgen_global:
     Bus(uid=('bus', 'global', typ), type=typ, price=price[typ],
         excess=False, regions=SmEnOsReg.regions)
@@ -86,7 +88,7 @@ for region in SmEnOsReg.regions:
     Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
         regions=[region], excess=False)
     # create biomass bus
-    Bus(uid=('bus', region.name, 'biomass'), type='biomass', price=price[typ],
+    Bus(uid=('bus', region.name, 'biomass'), type='biomass', price=0,
         regions=[region], excess=False)
 
     # create districtheat bus
