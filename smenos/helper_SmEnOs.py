@@ -14,15 +14,13 @@ from oemof.demandlib import energy_buildings as eb
 from oemof.demandlib import bdew_heatprofile as bdew_heat
 from oemof.tools import helpers
 from oemof import db
-from shapely.wkt import loads as wkt_loads
 
 
 def get_parameters():
     'returns emission and cost parameters'
 
     read_parameter = pd.read_csv(
-            'simulation_parameter_App_SmEnOs_csv.csv',
-            delimiter=';', index_col=0)
+        'simulation_parameter_App_SmEnOs_csv.csv', delimiter=';', index_col=0)
     parameters = {}
 
     for col in read_parameter.columns:
@@ -64,41 +62,43 @@ def get_parameters():
 
 def get_res_parameters():
     site = {'module_name': 'Yingli_YL210__2008__E__',
-        'azimuth': 0,
-        'tilt': 0,
-        'albedo': 0.2,
-        'hoy': 8760,
-        'h_hub': 135,
-        'd_rotor': 127,
-        'wka_model': 'ENERCON E 126 7500',
-        'h_hub_dc': {
-            1: 135,
-            2: 78,
-            3: 98,
-            4: 138,
-            0: 135},
-        'd_rotor_dc': {
-            1: 127,
-            2: 82,
-            3: 82,
-            4: 82,
-            0: 127},
-        'wka_model_dc': {
-            1: 'ENERCON E 126 7500',
-            2: 'ENERCON E 82 3000',
-            3: 'ENERCON E 82 2300',
-            4: 'ENERCON E 82 2300',
-            0: 'ENERCON E 126 7500'},
-        }
+            'azimuth': 0,
+            'tilt': 0,
+            'albedo': 0.2,
+            'hoy': 8760,
+            'h_hub': 135,
+            'd_rotor': 127,
+            'wka_model': 'ENERCON E 126 7500',
+            'h_hub_dc': {
+                1: 135,
+                2: 78,
+                3: 98,
+                4: 138,
+                0: 135},
+            'd_rotor_dc': {
+                1: 127,
+                2: 82,
+                3: 82,
+                4: 82,
+                0: 127},
+            'wka_model_dc': {
+                1: 'ENERCON E 126 7500',
+                2: 'ENERCON E 82 3000',
+                3: 'ENERCON E 82 2300',
+                4: 'ENERCON E 82 2300',
+                0: 'ENERCON E 126 7500'},
+            }
     return site
+
 
 def get_offshore_parameters(conn):
     site = {'h_hub': 80,
-        'd_rotor': 120,
-        'wka_model': 'SIEMENS SWT 3.6 120',
-        }
+            'd_rotor': 120,
+            'wka_model': 'SIEMENS SWT 3.6 120',
+            }
 
     return site
+
 
 def get_bdew_heatprofile_parameters():
     #TODO Werte recherchieren
@@ -129,10 +129,11 @@ def get_demand(conn, regions):
         columns=['nuts_id', 'energy', 'sector', 'demand'])
     return df
 
+
 def get_biomass_between_5and10MW(conn, geometry):
     sql = """
     SELECT sum(p_nenn_kwp)
-    FROM oemof_test.energy_map as ee 
+    FROM oemof_test.energy_map as ee
     WHERE anlagentyp='Biomasse'
     AND p_nenn_kwp >= 5000
     AND p_nenn_kwp < 10000
@@ -141,10 +142,11 @@ def get_biomass_between_5and10MW(conn, geometry):
     cap = pd.DataFrame(conn.execute(sql).fetchall(), columns=['capacity'])
     return cap
 
+
 def get_biomass_under_5MW(conn, geometry):
     sql = """
     SELECT sum(p_nenn_kwp)
-    FROM oemof_test.energy_map as ee 
+    FROM oemof_test.energy_map as ee
     WHERE anlagentyp='Biomasse'
     AND p_nenn_kwp < 5000
     AND st_contains(ST_GeomFromText('{wkt}',4326), ee.geom)
@@ -189,15 +191,15 @@ def get_opsd_pps(conn, geometry):
         """.format(wkt=geometry.wkt)
     df = pd.DataFrame(
         conn.execute(sql).fetchall(), columns=['type', 'technology', 'status',
-                'chp', 'cap_el', 'cap_el_uba', 'cap_th_uba', 'efficiency'])
+                                                'chp', 'cap_el', 'cap_el_uba',
+                                                'cap_th_uba', 'efficiency'])
     df['type'] = df['type'].apply(translator)
 
     #  rename cc-gasturbines in df
     for row in df.index:
         if df.loc[row]['technology'] == 'CC' and df.loc[
-            row]['type'] == 'natural_gas':
+                                        row]['type'] == 'natural_gas':
                 df.loc[row, 'type'] = 'natural_gas_cc'
-
     return df
 
 
@@ -209,7 +211,7 @@ def get_hydro_energy(conn, regions):
         """ + str(regions)
     df = pd.DataFrame(
         conn.execute(sql).fetchall(), columns=[
-        'state_short', 'capacity_mw', 'energy_mwh'])
+            'state_short', 'capacity_mw', 'energy_mwh'])
     return df
 
 
@@ -220,18 +222,18 @@ def get_pumped_storage_pps(conn, regions):
         WHERE state_short IN
         """ + str(regions)
     df = pd.DataFrame(
-        conn.execute(sql).fetchall(), columns=['state_short', 'power_mw',
-            'capacity_mwh'])
+        conn.execute(sql).fetchall(),
+        columns=['state_short', 'power_mw', 'capacity_mwh'])
     return df
-    
-    
+
+
 def get_offshore_pps(conn, schema, table, start_year):
     sql = """
         SELECT farm_capacity, st_astext(geom)
         FROM {schema}.{table}
         WHERE start_year <= {start_year}
-        """.format(**{'schema': schema, 'table': table, 
-                      'start_year':start_year})
+        """.format(**{'schema': schema, 'table': table,
+                      'start_year': start_year})
     pps = pd.DataFrame(conn.execute(sql).fetchall())
     return pps
 
@@ -251,29 +253,29 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
     cap_initial = kwargs.get('cap_initial', 0)
 
     (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
-    eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
-    c_rate_in, c_rate_out, eta_in, eta_out,
-    cap_loss) = get_parameters()
-        
+     eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
+     c_rate_in, c_rate_out, eta_in, eta_out,
+     cap_loss) = get_parameters()
+
     # replace NaN with 0
     mask = pd.isnull(pp)
     pp = pp.where(~mask, other=0)
 
     capacity = {}
     capacity_chp_el = {}
-    
+
 #_______________________________________get biomass under 10 MW from energymap
     conn = db.connection()
     p_bio = get_biomass_between_5and10MW(conn, region.geom)
     p_bio_bhkw = get_biomass_under_5MW(conn, region.geom)
-    p_bio5to10 = float(p_bio['capacity']) / 1000 #from kW to MW
-    p_el_bhkw = float(p_bio_bhkw['capacity']) / 1000 # from kW to MW
+    p_bio5to10 = float(p_bio['capacity']) / 1000  # from kW to MW
+    p_el_bhkw = float(p_bio_bhkw['capacity']) / 1000  # from kW to MW
     p_th_bhkw = p_el_bhkw * eta_th_chp['bhkw'] / eta_el_chp['bhkw']
-   
+
 #___________________________________________________________
 
-#    efficiency = {} 
-    
+#    efficiency = {}
+
     for typ in typeofgen:
         # capacity for simple transformer (chp = no)
         capacity[typ] = sum(pp[pp['type'].isin([typ])][pp['status'].isin([
@@ -296,10 +298,10 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
         if typ == 'biomass':
             resourcebus = [obj for obj in esystem.entities if obj.uid == (
                 'bus', region.name, typ)]
-            
+
             capacity_chp_el[typ] = capacity_chp_el[typ] + p_bio5to10
-            
-            #create biomass bhkw transformer (under 5 MW)           
+
+            #create biomass bhkw transformer (under 5 MW)
             transformer.CHP(
                 uid=('transformer', region.name, typ, 'bhkw'),
                 # takes from resource bus
@@ -308,33 +310,32 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                 outputs=[[obj for obj in region.entities if obj.uid == (
                     'bus', region.name, 'elec')][0],
                     [obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'dh')][0]],
-#TODO: Wärme auf den richtigen bus legen!!!!
+                        'bus', region.name, 'dh')][0]],
+                #TODO: Wärme auf den richtigen bus legen!!!!
                 in_max=[None],
-                out_max=[p_el_bhkw,p_th_bhkw],
+                out_max=[p_el_bhkw, p_th_bhkw],
                 eta=[eta_el_chp['bhkw'], eta_th_chp['bhkw']],
                 opex_var=opex_var[typ],
                 regions=[region])
-        else: # not biomass
+        else:  # not biomass
             resourcebus = [obj for obj in esystem.entities if obj.uid == (
                 'bus', 'global', typ)]
 
         if capacity_chp_el[typ] > 0:
-            
+
             transformer.CHP(
                 uid=('transformer', region.name, typ, 'chp'),
                 inputs=resourcebus,
                 outputs=[[obj for obj in region.entities if obj.uid == (
                     'bus', region.name, 'elec')][0],
                     [obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'dh')][0]],
+                        'bus', region.name, 'dh')][0]],
                 in_max=[None],
-                out_max=get_out_max_chp(capacity_chp_el[typ], chp_faktor_flex, 
+                out_max=get_out_max_chp(capacity_chp_el[typ], chp_faktor_flex,
                                         eta_th_chp[typ], eta_el_chp[typ]),
                 eta=[eta_el_chp[typ], eta_th_chp[typ]],
                 opex_var=opex_var[typ],
                 regions=[region])
-                
 
             transformer.SimpleExtractionCHP(
                 uid=('transformer', region.name, typ, 'SEchp'),
@@ -342,14 +343,14 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                 outputs=[[obj for obj in region.entities if obj.uid == (
                     'bus', region.name, 'elec')][0],
                     [obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'dh')][0]],
+                        'bus', region.name, 'dh')][0]],
                 in_max=[None],
-                out_max=get_out_max_chp_flex(capacity_chp_el[typ], 
-                                chp_faktor_flex, sigma_chp[typ]),
+                out_max=get_out_max_chp_flex(capacity_chp_el[typ],
+                                             chp_faktor_flex, sigma_chp[typ]),
                 out_min=[0.0, 0.0],
                 eta_el_cond=eta_chp_flex_el[typ],
-                sigma=sigma_chp[typ],	#power to heat ratio in backpressure mode
-                beta=beta_chp[typ],		#power loss index
+                sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
+                beta=beta_chp[typ],		# power loss index
                 opex_var=opex_var[typ],
                 regions=[region])
 
@@ -358,7 +359,7 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                 uid=('transformer', region.name, typ),
                 inputs=resourcebus,
                 outputs=[[obj for obj in region.entities if obj.uid == (
-                'bus', region.name, 'elec')][0]],
+                    'bus', region.name, 'elec')][0]],
                 in_max=[None],
                 out_max=[float(capacity[typ])],
                 eta=[eta_elec[typ]],
@@ -374,10 +375,10 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             uid=('Storage', region.name, typ),
             # nimmt von strombus
             inputs=[obj for obj in esystem.entities if obj.uid == (
-               'bus', region.name, 'elec')],
+                'bus', region.name, 'elec')],
             # speist auf strombus ein
             outputs=[obj for obj in region.entities if obj.uid == (
-               'bus', region.name, 'elec')],
+                'bus', region.name, 'elec')],
             cap_max=float(sum(pumped_storage[pumped_storage[
                 'state_short'].isin([region.name])]['capacity_mwh'])),
             cap_min=0,
@@ -387,7 +388,7 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             eta_out=eta_out[typ],
             c_rate_in=c_rate_in[typ],
             c_rate_out=c_rate_out[typ],
-            opex_var=opex_var[typ],
+            #  opex_fix=opex_fix[typ],
             capex=capex[typ],
             cap_initial=cap_initial,
             regions=[region])
@@ -396,28 +397,31 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
     typ = 'run_of_river'
     energy = sum(ror_cap[ror_cap['state_short'].isin(
         [region.name])]['energy_mwh'])
+
     capacity[typ] = sum(ror_cap[ror_cap[
-       'state_short'].isin([region.name])]['capacity_mw'])
+        'state_short'].isin([region.name])]['capacity_mw'])
     if energy > 0:
         source.FixedSource(
             uid=('FixedSrc', region.name, 'hydro'),
             # speist auf strombus ein
             outputs=[obj for obj in region.entities if obj.uid == (
-               'bus', region.name, 'elec')],
+                'bus', region.name, 'elec')],
             val=scale_profile_to_sum_of_energy(
                 filename=kwargs.get('filename_hydro'),
                 energy=energy,
-                capacity = capacity[typ]),
-            out_max=[capacity[typ]],  # inst. Leistung!
+                capacity=capacity[typ]),
+            out_max=[float(capacity[typ])],  # inst. Leistung!
             regions=[region])
-            
-def get_out_max_chp(capacity_chp_el, chp_faktor_flex, 
+
+
+def get_out_max_chp(capacity_chp_el, chp_faktor_flex,
                     eta_th_chp, eta_el_chp):
     out_max_el = float(capacity_chp_el) * (1-chp_faktor_flex)
     out_max_th = out_max_el * eta_th_chp / eta_el_chp
     out = [out_max_el, out_max_th]
     return out
-    
+
+
 def get_out_max_chp_flex(capacity_chp_el, chp_faktor_flex, sigma_chp):
     out_max_el = float(capacity_chp_el) * (chp_faktor_flex)
     out_max_th = out_max_el / sigma_chp
@@ -428,14 +432,14 @@ def get_out_max_chp_flex(capacity_chp_el, chp_faktor_flex, sigma_chp):
 def scale_profile_to_capacity(filename, capacity):
     profile = pd.read_csv(filename, sep=",")
     generation_profile = (profile.values / np.amax(profile.values) *
-        float(capacity))
+                          float(capacity))
     return generation_profile
 
 
 def scale_profile_to_sum_of_energy(filename, energy, capacity):
-    profile = pd.read_csv(filename, sep=",")
-    generation_profile = profile.values * float(energy) / (
-                        sum(profile.values) * float(capacity))
+    profile = pd.read_csv(filename)
+    generation_profile = profile['profile'] * float(energy) / (
+        sum(profile['profile']))
     return generation_profile
 
 
@@ -451,27 +455,28 @@ def call_el_demandlib(demand, method, year, **kwargs):
     '''
 #    demand.val = dm.electrical_demand(method,
     demand_values = dm.electrical_demand(method,
-                         year=year,
-                         annual_elec_demand=kwargs.get(
-                         'annual_elec_demand'),
-                         ann_el_demand_per_sector=kwargs.get(
-                         'ann_el_demand_per_sector'),
-                         path=kwargs.get('path'),
-                         filename=kwargs.get('filename'),
-                         ann_el_demand_per_person=kwargs.get(
-                         'ann_el_demand_per_person'),
-                         household_structure=kwargs.get(
-                         'household_structure'),
-                         household_members_all=kwargs.get(
-                         'household_members_all'),
-                         population=kwargs.get(
-                         'population'),
-                         comm_ann_el_demand_state=kwargs.get(
-                         'comm_ann_el_demand_state'),
-                         comm_number_of_employees_state=kwargs.get(
-                         'comm_number_of_employees_state'),
-                         comm_number_of_employees_region=kwargs.get(
-                         'comm_number_of_employees_region')).elec_demand
+                             year=year,
+                             annual_elec_demand=kwargs.get(
+                             'annual_elec_demand'),
+                             ann_el_demand_per_sector=kwargs.get(
+                             'ann_el_demand_per_sector'),
+                             path=kwargs.get('path'),
+                             filename=kwargs.get('filename'),
+                             ann_el_demand_per_person=kwargs.get(
+                             'ann_el_demand_per_person'),
+                             household_structure=kwargs.get(
+                             'household_structure'),
+                             household_members_all=kwargs.get(
+                             'household_members_all'),
+                             population=kwargs.get(
+                             'population'),
+                             comm_ann_el_demand_state=kwargs.get(
+                             'comm_ann_el_demand_state'),
+                             comm_number_of_employees_state=kwargs.get(
+                             'comm_number_of_employees_state'),
+                             comm_number_of_employees_region=kwargs.get(
+                             'comm_number_of_employees_region')).elec_demand
+
     demand.val = demand_values['load']
     return demand
 
@@ -488,17 +493,17 @@ def call_heat_demandlib(region, year, **kwargs):
     '''
     holidays = helpers.get_german_holidays(year, ['Germany', region.name])
     load_profile = eb.Building().hourly_heat_demand(
-                        fun=bdew_heat.create_bdew_profile,
-                        datapath="../../oemof/oemof/demandlib/bdew_data",
-                        year=year, holidays=holidays,
-                        temperature=region.temp,
-                        shlp_type=kwargs.get('shlp_type', None),
-                        building_class=(region.building_class
-                            if region.building_class is not None else 0),
-                        wind_class=region.wind_class,
-                        ww_incl=kwargs.get('ww_incl', True),
-                        annual_heat_demand=kwargs.get(
-                            'annual_heat_demand', None))
+        fun=bdew_heat.create_bdew_profile,
+        datapath="../../oemof/oemof/demandlib/bdew_data",
+        year=year, holidays=holidays,
+        temperature=region.temp,
+        shlp_type=kwargs.get('shlp_type', None),
+        building_class=(region.building_class
+                        if region.building_class is not None else 0),
+        wind_class=region.wind_class,
+        ww_incl=kwargs.get('ww_incl', True),
+        annual_heat_demand=kwargs.get(
+            'annual_heat_demand', None))
     return load_profile
 
 
