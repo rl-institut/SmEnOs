@@ -14,7 +14,6 @@
 
 import logging
 import pandas as pd
-import numpy as np
 from matplotlib import pyplot as plt
 import warnings
 
@@ -70,6 +69,7 @@ for index, row in regionsOstdt.iterrows():
     SmEnOsReg.regions.append(es.Region(
         geom=tools.get_polygon_from_nuts(conn, row['nutsID']),
         name=row['abbr']))
+
 # Add global buses
 typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite', 'hard_coal',
                     'oil', 'waste']
@@ -100,7 +100,7 @@ for region in SmEnOsReg.regions:
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
                          inputs=[obj for obj in SmEnOsReg.entities
                                  if obj.uid == ('bus', region.name, 'elec')],
-                        region=region)
+                         region=region)
 
     # get regional electricity demand [MWh/a]
     nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
@@ -203,18 +203,26 @@ for region in SmEnOsReg.regions:
 # Get run-of-river and pumped storage capacities
 # ror_cap is Series with state abbr, capacity_mw and energy_mwh
 ror_cap = hls.get_hydro_energy(conn, tuple(regionsOstdt['abbr']))
+print('hydro energy:')
+print(ror_cap)
+
 # pumped_storage is Series with state abbr, power_mw and capacity_mwh
 pumped_storage = hls.get_pumped_storage_pps(conn, tuple(regionsOstdt['abbr']))
+
 # renewable parameters
 site = hls.get_res_parameters()
 site_os = hls.get_offshore_parameters(conn)
 
+# add biomass in typeofgen because its needed to generate powerplants from db
 typeofgen_global.append('biomass')
 
 # create fixedSource object for Offshore WindPower
 feedin_df, cap = feedin_offs.Feedin().aggregate_cap_val(
     conn, year=year, schema='oemof_test', table='baltic_wind_farms',
     start_year=Offshore_Scenario, bustype='elec', **site_os)
+print('val_offshore:')
+print(len(feedin_df))
+print(feedin_df)
 
 source.FixedSource(
     uid=('FixedSrc', 'MV', 'Offshore'),
@@ -229,18 +237,17 @@ for region in SmEnOsReg.regions:
 
     #TODO Problem mit Erdwärme??!!
 
-    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
-        conn, region=region, year=year, bustype='elec', **site)
-    for stype in feedin_df.keys():
-        source.FixedSource(
-            uid=('FixedSrc', region.name, stype),
-            outputs=[obj for obj in region.entities if obj.uid == (
-                'bus', region.name, 'elec')],
-            val=feedin_df[stype],
-            out_max=[cap[stype]])
+#    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
+#        conn, region=region, year=year, bustype='elec', **site)
+#    for stype in feedin_df.keys():
+#        source.FixedSource(
+#            uid=('FixedSrc', region.name, stype),
+#            outputs=[obj for obj in region.entities if obj.uid == (
+#                'bus', region.name, 'elec')],
+#            val=feedin_df[stype],
+#            out_max=[cap[stype]])
 
     # Get power plants from database and write them into a DataFrame
-
     pps_df = hls.get_opsd_pps(conn, region.geom)
     hls.create_opsd_summed_objects(
         SmEnOsReg, region, pps_df,
@@ -313,7 +320,6 @@ SmEnOsReg.connect(ebusSN, ebusST, in_max=0, out_max=0,
 SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
                   eta=eta_elec['transmission'],
                   transport_class=transport.Simple)
-
 
 # Optimize the energy system
 SmEnOsReg.optimize()
