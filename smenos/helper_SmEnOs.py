@@ -71,22 +71,27 @@ def get_res_parameters():
             'wka_model': 'ENERCON E 126 7500',
             'h_hub_dc': {
                 1: 135,
-                2: 78,
+                2: 135,
                 3: 98,
-                4: 138,
+                4: 78,
                 0: 135},
+            #    1: 135,
+             #   2: 78,
+             #   3: 98,
+             #   4: 138,
+             #   0: 135},
             'd_rotor_dc': {
                 1: 127,
                 2: 82,
                 3: 82,
                 4: 82,
-                0: 127},
+                0: 82},
             'wka_model_dc': {
                 1: 'ENERCON E 126 7500',
-                2: 'ENERCON E 82 3000',
-                3: 'ENERCON E 82 2300',
+                2: 'ENERCON E 82 2300',
+                3: 'ENERCON E 82 3000',
                 4: 'ENERCON E 82 2300',
-                0: 'ENERCON E 126 7500'},
+                0: 'ENERCON E 82 2300'},
             }
     return site
 
