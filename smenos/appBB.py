@@ -51,13 +51,201 @@ Regions = es.EnergySystem(time_idx=time_index, simulation=simulation)
 regionsBB = pd.DataFrame(
     [{'abbr': 'PO', 'nutsID': ['DE40F', 'DE40D', 'DE40A']},
         {'abbr': 'UB', 'nutsID': ['DE40I', 'DE405']},
-        {'abbr': 'HF', 'nutsID': ['DE408', 'DE40E', 'DE40H', 'DE401', 'DE404']},
+        {'abbr': 'HF', 'nutsID': [
+            'DE408', 'DE40E', 'DE40H', 'DE401', 'DE404']},
         {'abbr': 'OS', 'nutsID': ['DE409', 'DE40C', 'DE403']},
-        {'abbr': 'LS', 'nutsID': ['DE406', 'DE407', 'DE40B', 'DE40G', 'DE402']},
+        {'abbr': 'LS', 'nutsID': [
+            'DE406', 'DE407', 'DE40B', 'DE40G', 'DE402']},
         {'abbr': 'BE', 'nutsID': 'DE3'}],
     index=['Prignitz-Oberhavel', 'Uckermark-Barnim', u'Havelland-Fläming',
-        'Oderland-Spree', 'Lausitz-Spreewald', 'Berlin'])
+           'Oderland-Spree', 'Lausitz-Spreewald', 'Berlin'])
 for index, row in regionsBB.iterrows():
     Regions.regions.append(es.Region(
         geom=tools.get_polygon_from_nuts(conn, row['nutsID']),
         name=row['abbr']))
+
+# Add global buses
+typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
+                    'oil', 'waste']
+
+for typ in typeofgen_global:
+    Bus(uid=('bus', 'global', typ), type=typ, price=0,
+        excess=False, regions=Regions.regions)
+
+# Add electricity sink and bus for each region
+# TODO: anpassen!  demands_df = hls.get_demand(conn, tuple(regionsBB['nutsID']))
+for region in Regions.regions:
+    # create electricity bus
+    Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
+        regions=[region], excess=False)
+    # create biomass bus
+    Bus(uid=('bus', region.name, 'biomass'), type='biomass', price=0,
+        regions=[region], excess=False)
+    # create districtheat bus
+    Bus(uid=('bus', region.name, 'dh'), type='dh', price=0,
+        regions=[region], excess=False)
+    # create electricity sink
+    demand = sink.Simple(uid=('demand', region.name, 'elec'),
+                         inputs=[obj for obj in Regions.entities
+                                 if obj.uid == ('bus', region.name, 'elec')],
+                         region=region)
+
+# TODO:
+#    # get regional electricity demand [MWh/a]
+#    nutID = regionsBB.query('abbr==@region.name')['nutsID'].values[0]
+#    el_demand = demands_df.query(
+#        'nuts_id==@nutID and energy=="electricity"').sum(axis=0)['demand']
+#    # create el. profile and write to sink object
+#    hls.call_el_demandlib(demand, method='scale_profile_csv', year=year,
+#                          path='', filename='50Hertz2010_y.csv',
+#                          annual_elec_demand=el_demand)
+
+# renewable parameters
+site = hls.get_res_parameters()
+
+# add biomass in typeofgen because its needed to generate powerplants from db
+typeofgen_global.append('biomass')
+
+for region in Regions.regions:
+    logging.info('Processing region: {0}'.format(region.name))
+
+    #TODO Problem mit Erdwärme??!!
+# TODO: Leistungen pv und wind
+
+    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
+        conn, region=region, year=year, bustype='elec', **site)
+    ee_capacities = hls.get_data_from_csv('ee_capacities_'+scenario+'.csv')
+    for stype in feedin_df.keys():
+        source.FixedSource(
+            uid=('FixedSrc', region.name, stype),
+            outputs=[obj for obj in region.entities if obj.uid == (
+                'bus', region.name, 'elec')],
+            val=feedin_df[stype],
+            out_max=[ee_capacities[stype][region.name]])
+
+    # Get power plants from database and write them into a DataFrame
+    pps_df = hls.get_opsd_pps(conn, region.geom)
+    hls.create_opsd_summed_objects(
+        Regions, region, pps_df,
+        cap_initial=cap_initial,
+        chp_faktor_flex=chp_faktor_flex,  # share of flexible generation of CHP
+        typeofgen=typeofgen_global)
+
+# Remove orphan buses
+buses = [obj for obj in Regions.entities if isinstance(obj, Bus)]
+for bus in buses:
+    if len(bus.inputs) > 0 or len(bus.outputs) > 0:
+        logging.debug('Bus {0} has connections.'.format(bus.type))
+    else:
+        logging.debug('Bus {0} has no connections and will be deleted.'.format(
+            bus.type))
+        Regions.entities.remove(bus)
+
+# print all entities of every region
+for entity in Regions.entities:
+    print(entity.uid)
+    if entity.uid[0] == 'transformer' or entity.uid[0] == 'FixedSrc':
+        print('out_max')
+        print(entity.out_max)
+        print('type(out_max)')
+        print(type(entity.out_max))
+
+# change uid tuples to strings
+for entity in Regions.entities:
+    entity.uid = str(entity.uid)
+
+Import_Regions = ('MV', 'ST', 'SN', 'KJ')
+Export_Regions = ('MV', 'ST', 'SN', 'KJ', 'BE')
+
+for region_name in Import_Regions:
+    Regions.regions.append(es.Region(name=region_name))
+
+for region in Regions.regions:
+    if region.name in Import_Regions:
+        Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
+            regions=[region], excess=False)
+        source.Commodity(uid=('source', region.name, 'elec'),
+                         regions=[region],
+                         outputs=[obj for obj in region.entities if obj.uid == (
+                             'bus', region.name, 'elec')],
+                         opex_var=opex_var['import_el'])
+
+# TODO: aktualisieren, am besten nicht hardcode
+## Connect the electrical buses of federal states
+ebusPO = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'PO', 'elec')"][0]
+ebusUB = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'UB', 'elec')"][0]
+ebusOS = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'OS', 'elec')"][0]
+ebusHF = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'HF', 'elec')"][0]
+ebusLS = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'LS', 'elec')"][0]
+ebusMV = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'MV', 'elec')"][0]
+ebusST = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'ST', 'elec')"][0]
+ebusSN = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'SN', 'elec')"][0]
+ebusBE = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'BE', 'elec')"][0]
+ebusKJ = [obj for obj in Regions.entities if obj.uid ==
+          "('bus', 'KJ', 'elec')"][0]
+#
+##TODO replace transport capacities
+Regions.connect(ebusPO, ebusOS,
+                in_max=transmission['PO_OS'], out_max=transmission['PO_OS'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusPO, ebusHF,
+                in_max=transmission['PO_HF'], out_max=transmission['PO_HF'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusUB, ebusOS,
+                in_max=transmission['UB_OS'], out_max=transmission['UB_OS'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusOS, ebusLS,
+                in_max=transmission['OS_LS'], out_max=transmission['OS_LS'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusHF, ebusLS,
+                in_max=transmission['HF_LS'], out_max=transmission['HF_LS'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusMV, ebusPO,
+                in_max=transmission['MV_PO'], out_max=transmission['MV_PO'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusMV, ebusUB,
+                in_max=transmission['MV_UB'], out_max=transmission['MV_UB'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusST, ebusPO,
+                in_max=transmission['ST_PO'], out_max=transmission['ST_PO'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusST, ebusHF,
+                in_max=transmission['ST_HF'], out_max=transmission['ST_HF'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusSN, ebusLS,
+                in_max=transmission['SN_LS'], out_max=transmission['SN_LS'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusBE, ebusOS,
+                in_max=transmission['BE_OS'], out_max=transmission['BE_OS'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusBE, ebusHF,
+                in_max=transmission['BE_HF'], out_max=transmission['BE_HF'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+Regions.connect(ebusKJ, ebusUB,
+                in_max=transmission['KJ_UB'], out_max=transmission['KJ_UB'],
+                eta=eta_elec['transmission'],
+                transport_class=transport.Simple)
+# Optimize the energy system
+Regions.optimize()
+logging.info(Regions.dump())
