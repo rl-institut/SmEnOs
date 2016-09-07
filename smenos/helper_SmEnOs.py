@@ -48,6 +48,8 @@ def get_parameters():
     opex_var = parameters['opex_var']
     opex_fix = parameters['opex_fix']
     capex = parameters['capex']
+    lifetime = parameters['lifetime']
+    wacc = parameters['wacc']
 
     c_rate_in = parameters['c_rate_in']
     c_rate_out = parameters['c_rate_out']
@@ -57,7 +59,7 @@ def get_parameters():
 
     return(co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
            eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
-           c_rate_in, c_rate_out, eta_in, eta_out, cap_loss)
+           c_rate_in, c_rate_out, eta_in, eta_out, cap_loss, lifetime, wacc)
 
 
 def get_res_parameters():
@@ -260,7 +262,7 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
     (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
      eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
      c_rate_in, c_rate_out, eta_in, eta_out,
-     cap_loss) = get_parameters()
+     cap_loss, lifetime, wacc) = get_parameters()
 
     # replace NaN with 0
     mask = pd.isnull(pp)
