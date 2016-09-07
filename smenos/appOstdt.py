@@ -76,7 +76,7 @@ typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite', 'hard_coal',
 (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
  eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
  c_rate_in, c_rate_out, eta_in, eta_out,
- cap_loss) = hls.get_parameters()
+ cap_loss, lifetime, wacc) = hls.get_parameters()
 
 for typ in typeofgen_global:
     Bus(uid=('bus', 'global', typ), type=typ, price=0,
