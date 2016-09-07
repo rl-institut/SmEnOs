@@ -3,12 +3,23 @@
 
 import pandas as pd
 import warnings
+import logging
 
 from oemof import db
 from oemof.tools import logger
 from oemof.core import energy_system as es
 from oemof.db import tools
+from oemof.db import feedin_pg
 from oemof.solph import predefined_objectives as predefined_objectives
+from oemof.core.network.entities import Bus
+from oemof.core.network.entities.components import sinks as sink
+from oemof.core.network.entities.components import transports as transport
+from oemof.core.network.entities.components import sources as source
+
+import helper_BBB as hls
+
+# choose scenario
+scenario = 'ES_2030'
 
 # Basic inputs
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -16,6 +27,17 @@ logger.define_logging()
 year = 2010
 time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
 conn = db.connection()
+
+cap_initial = 0.0
+chp_faktor_flex = 0.84  # share of flexible generation of CHP
+
+# parameters
+(co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
+ eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
+ c_rate_in, c_rate_out, eta_in, eta_out,
+ cap_loss, lifetime, wacc) = hls.get_parameters()
+
+transmission = hls.get_data_from_csv('transmission_cap'+scenario+'.csv')
 
 # Create a simulation object
 simulation = es.Simulation(
