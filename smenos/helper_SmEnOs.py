@@ -37,7 +37,6 @@ def get_parameters():
 
     # efficiencies [-]
     eta_elec = parameters['eta_elec']
-    eta_elec['transmission'] = 0.9  # TODO: in csv
     eta_th = parameters['eta_th']
     eta_el_chp = parameters['eta_el_chp']
     eta_th_chp = parameters['eta_th_chp']
@@ -61,6 +60,23 @@ def get_parameters():
            eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
            c_rate_in, c_rate_out, eta_in, eta_out, cap_loss, lifetime, wacc)
 
+		   
+def get_data_from_csv(filename):
+    '''returns "data". data is a dict which includes the columns of the csv
+    as dicts: columns of csv: data[column]; cells of csv: data[column][row]
+    '''
+    read_data = pd.read_csv(filename, delimiter=';', index_col=0)
+    data = {}
+
+    for col in read_data.columns:
+        data[col] = {}
+        for row in read_data.index:
+            try:
+                data[col][row] = float(read_data.loc[row][col])
+            except:
+                data[col][row] = read_data.loc[row][col]
+    return data
+
 
 def get_res_parameters():
     site = {'module_name': 'Yingli_YL210__2008__E__',
@@ -77,11 +93,6 @@ def get_res_parameters():
                 3: 98,
                 4: 78,
                 0: 135},
-            #    1: 135,
-             #   2: 78,
-             #   3: 98,
-             #   4: 138,
-             #   0: 135},
             'd_rotor_dc': {
                 1: 127,
                 2: 82,
@@ -89,10 +100,10 @@ def get_res_parameters():
                 4: 82,
                 0: 82},
             'wka_model_dc': {
-                1: 'ENERCON E 126 7500',
+                1: 'ENERCON E 82 2300',
                 2: 'ENERCON E 82 2300',
                 3: 'ENERCON E 82 3000',
-                4: 'ENERCON E 82 2300',
+                4: 'ENERCON E 82 3000',
                 0: 'ENERCON E 82 2300'},
             }
     return site
