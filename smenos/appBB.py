@@ -16,7 +16,8 @@ from oemof.core.network.entities.components import sinks as sink
 from oemof.core.network.entities.components import transports as transport
 from oemof.core.network.entities.components import sources as source
 
-import helper_BBB as hls
+import helper_SmEnOs as hls
+import helper_BBB as hlsb
 
 # choose scenario
 scenario = 'ES_2030'
@@ -37,7 +38,7 @@ chp_faktor_flex = 0.84  # share of flexible generation of CHP
  c_rate_in, c_rate_out, eta_in, eta_out,
  cap_loss, lifetime, wacc) = hls.get_parameters()
 
-transmission = hls.get_data_from_csv('transmission_cap'+scenario+'.csv')
+transmission = hls.get_data_from_csv('transmission_cap_'+scenario+'.csv')
 
 # Create a simulation object
 simulation = es.Simulation(
@@ -110,7 +111,7 @@ for region in Regions.regions:
     logging.info('Processing region: {0}'.format(region.name))
 
     #TODO Problem mit Erdwärme??!!
-# TODO: Leistungen pv und wind
+# TODO: Leistungen pv und wind in transformer_bbb
 
     feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
         conn, region=region, year=year, bustype='elec', **site)
@@ -170,82 +171,95 @@ for region in Regions.regions:
                              'bus', region.name, 'elec')],
                          opex_var=opex_var['import_el'])
 
-# TODO: aktualisieren, am besten nicht hardcode
-## Connect the electrical buses of federal states
-ebusPO = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'PO', 'elec')"][0]
-ebusUB = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'UB', 'elec')"][0]
-ebusOS = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'OS', 'elec')"][0]
-ebusHF = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'HF', 'elec')"][0]
-ebusLS = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'LS', 'elec')"][0]
-ebusMV = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'MV', 'elec')"][0]
-ebusST = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'ST', 'elec')"][0]
-ebusSN = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'SN', 'elec')"][0]
-ebusBE = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'BE', 'elec')"][0]
-ebusKJ = [obj for obj in Regions.entities if obj.uid ==
-          "('bus', 'KJ', 'elec')"][0]
+# TODO: aktualisieren mit transmission, 
+# Connect the electrical buses of federal states
+
+for con in transmission:  # Zeilen in transmission-Tabelle
+    reg1 = transmission[con]['from']  # zeile x,Spalte 'from',muss string sein!
+    reg2 = transmission[con]['to']  # zeile x,Spalte 'from',muss string sein!
+    ebus_1 = [obj for obj in Regions.entities if obj.uid ==
+              "('bus', "+reg1+" , 'elec')"][0]
+    ebus_2 = [obj for obj in Regions.entities if obj.uid ==
+              "('bus', "+reg2+" , 'elec')"][0]
+    Regions.connect(ebus_1, ebus_2,
+                    in_max=transmission[con]['cap'],
+                    out_max=transmission[con]['cap'],
+                    eta=eta_elec['transmission'],
+                    transport_class=transport.Simple)
 #
-##TODO replace transport capacities
-Regions.connect(ebusPO, ebusOS,
-                in_max=transmission['PO_OS'], out_max=transmission['PO_OS'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusPO, ebusHF,
-                in_max=transmission['PO_HF'], out_max=transmission['PO_HF'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusUB, ebusOS,
-                in_max=transmission['UB_OS'], out_max=transmission['UB_OS'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusOS, ebusLS,
-                in_max=transmission['OS_LS'], out_max=transmission['OS_LS'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusHF, ebusLS,
-                in_max=transmission['HF_LS'], out_max=transmission['HF_LS'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusMV, ebusPO,
-                in_max=transmission['MV_PO'], out_max=transmission['MV_PO'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusMV, ebusUB,
-                in_max=transmission['MV_UB'], out_max=transmission['MV_UB'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusST, ebusPO,
-                in_max=transmission['ST_PO'], out_max=transmission['ST_PO'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusST, ebusHF,
-                in_max=transmission['ST_HF'], out_max=transmission['ST_HF'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusSN, ebusLS,
-                in_max=transmission['SN_LS'], out_max=transmission['SN_LS'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusBE, ebusOS,
-                in_max=transmission['BE_OS'], out_max=transmission['BE_OS'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusBE, ebusHF,
-                in_max=transmission['BE_HF'], out_max=transmission['BE_HF'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
-Regions.connect(ebusKJ, ebusUB,
-                in_max=transmission['KJ_UB'], out_max=transmission['KJ_UB'],
-                eta=eta_elec['transmission'],
-                transport_class=transport.Simple)
+#ebusPO = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'PO', 'elec')"][0]
+#ebusUB = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'UB', 'elec')"][0]
+#ebusOS = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'OS', 'elec')"][0]
+#ebusHF = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'HF', 'elec')"][0]
+#ebusLS = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'LS', 'elec')"][0]
+#ebusMV = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'MV', 'elec')"][0]
+#ebusST = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'ST', 'elec')"][0]
+#ebusSN = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'SN', 'elec')"][0]
+#ebusBE = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'BE', 'elec')"][0]
+#ebusKJ = [obj for obj in Regions.entities if obj.uid ==
+#          "('bus', 'KJ', 'elec')"][0]
+#
+#Regions.connect(ebusPO, ebusOS,
+#                in_max=transmission['PO']['OS'], out_max=transmission['PO']['OS'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusPO, ebusHF,
+#                in_max=transmission['PO']['HF'], out_max=transmission['PO']['HF'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusUB, ebusOS,
+#                in_max=transmission['UB']['OS'], out_max=transmission['UB']['OS'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusOS, ebusLS,
+#                in_max=transmission['OS']['LS'], out_max=transmission['OS']['LS'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusHF, ebusLS,
+#                in_max=transmission['HF']['LS'], out_max=transmission['HF']['LS'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusMV, ebusPO,
+#                in_max=transmission['MV']['PO'], out_max=transmission['MV']['PO'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusMV, ebusUB,
+#                in_max=transmission['MV']['UB'], out_max=transmission['MV']['UB'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusST, ebusPO,
+#                in_max=transmission['ST']['PO'], out_max=transmission['ST']['PO'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusST, ebusHF,
+#                in_max=transmission['ST']['HF'], out_max=transmission['ST']['HF'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusSN, ebusLS,
+#                in_max=transmission['SN']['LS'], out_max=transmission['SN']['LS'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusBE, ebusOS,
+#                in_max=transmission['BE']['OS'], out_max=transmission['BE']['OS'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusBE, ebusHF,
+#                in_max=transmission['BE']['HF'], out_max=transmission['BE']['HF'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
+#Regions.connect(ebusKJ, ebusUB,
+#                in_max=transmission['KJ']['UB'], out_max=transmission['KJ']['UB'],
+#                eta=eta_elec['transmission'],
+#                transport_class=transport.Simple)
 # Optimize the energy system
 Regions.optimize()
 logging.info(Regions.dump())
