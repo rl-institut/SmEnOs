@@ -60,7 +60,7 @@ def get_parameters():
            eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
            c_rate_in, c_rate_out, eta_in, eta_out, cap_loss, lifetime, wacc)
 
-		   
+
 def get_data_from_csv(filename):
     '''returns "data". data is a dict which includes the columns of the csv
     as dicts: columns of csv: data[column]; cells of csv: data[column][row]
@@ -494,8 +494,10 @@ def call_el_demandlib(demand, method, year, **kwargs):
                              'comm_number_of_employees_state'),
                              comm_number_of_employees_region=kwargs.get(
                              'comm_number_of_employees_region')).elec_demand
-
-    demand.val = demand_values['load']
+    if method == 'calculate_profile':
+        demand.val = demand_values.sum(axis=1)
+    else:
+        demand.val = demand_values['load']
     return demand
 
 
