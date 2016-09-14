@@ -137,6 +137,62 @@ def get_dict_from_df(data_frame):
                 data[col][row] = data_frame.loc[row][col]
     return data
 
+def get_st_timeline(conn, year):
+    sql = """
+        SELECT "EFH_Altbau_san_HWW_S", "EFH_Altbau_san_HWW_SO",
+        "EFH_Altbau_san_HWW_SW",
+        "EFH_Altbau_san_WW_S", "EFH_Altbau_san_WW_SO",
+        "EFH_Altbau_san_WW_SW",
+        "MFH_Altbau_san_HWW_S", "MFH_Altbau_san_HWW_SO",
+        "MFH_Altbau_san_HWW_SW",
+        "MFH_Altbau_san_WW_S", "MFH_Altbau_san_WW_SO",
+        "MFH_Altbau_san_WW_SW"
+        FROM wittenberg.trnsys_st_zeitreihen AS d
+        """
+    read_parameter = pd.DataFrame(
+            conn.execute(sql).fetchall(),
+            columns=['EFH_Altbau_san_HWW_S', 'EFH_Altbau_san_HWW_SO',
+                     'EFH_Altbau_san_HWW_SW',
+                     'EFH_Altbau_san_WW_S', 'EFH_Altbau_san_WW_SO',
+                     'EFH_Altbau_san_WW_SW',
+                     'MFH_Altbau_san_HWW_S', 'MFH_Altbau_san_HWW_SO',
+                     'MFH_Altbau_san_HWW_SW',
+                     'MFH_Altbau_san_WW_S', 'MFH_Altbau_san_WW_SO',
+                     'MFH_Altbau_san_WW_SW'])
+
+    #timeline_st = pd.DataFrame(columns='st')
+    timeline_st = pd.DataFrame(
+        index=pd.date_range(pd.datetime(year, 1, 1, 0), periods=8760,
+                            freq='H'), columns=['st'])
+
+    for row in range(8760):
+            timeline_st['st'][row] =\
+                        0.15 * read_parameter['EFH_Altbau_san_HWW_S'][row] /\
+                        read_parameter['EFH_Altbau_san_HWW_S'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_HWW_SO'][row] /\
+                        read_parameter['EFH_Altbau_san_HWW_SO'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_HWW_SW'][row] /\
+                        read_parameter['EFH_Altbau_san_HWW_SW'].sum() +\
+                        0.15 * read_parameter['EFH_Altbau_san_WW_S'][row] /\
+                        read_parameter['EFH_Altbau_san_WW_S'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_WW_SO'][row] /\
+                        read_parameter['EFH_Altbau_san_WW_SO'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_WW_SW'][row] /\
+                        read_parameter['EFH_Altbau_san_WW_SW'].sum() +\
+                        0.15 * read_parameter['MFH_Altbau_san_HWW_S'][row] /\
+                        read_parameter['MFH_Altbau_san_HWW_S'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_HWW_SO'][row] /\
+                        read_parameter['MFH_Altbau_san_HWW_SO'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_HWW_SW'][row] /\
+                        read_parameter['MFH_Altbau_san_HWW_SW'].sum() +\
+                        0.15 * read_parameter['MFH_Altbau_san_WW_S'][row] /\
+                        read_parameter['MFH_Altbau_san_WW_S'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_WW_SO'][row] / \
+                        read_parameter['MFH_Altbau_san_WW_SO'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_WW_SW'][row] /\
+                        read_parameter['MFH_Altbau_san_WW_SW'].sum()
+    return(timeline_st)
+
 
 def create_transformer(esystem, region, pp, conn, **kwargs):
 
