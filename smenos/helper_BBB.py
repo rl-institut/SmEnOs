@@ -137,6 +137,62 @@ def get_dict_from_df(data_frame):
                 data[col][row] = data_frame.loc[row][col]
     return data
 
+def get_st_timeline(conn, year):
+    sql = """
+        SELECT "EFH_Altbau_san_HWW_S", "EFH_Altbau_san_HWW_SO",
+        "EFH_Altbau_san_HWW_SW",
+        "EFH_Altbau_san_WW_S", "EFH_Altbau_san_WW_SO",
+        "EFH_Altbau_san_WW_SW",
+        "MFH_Altbau_san_HWW_S", "MFH_Altbau_san_HWW_SO",
+        "MFH_Altbau_san_HWW_SW",
+        "MFH_Altbau_san_WW_S", "MFH_Altbau_san_WW_SO",
+        "MFH_Altbau_san_WW_SW"
+        FROM wittenberg.trnsys_st_zeitreihen AS d
+        """
+    read_parameter = pd.DataFrame(
+            conn.execute(sql).fetchall(),
+            columns=['EFH_Altbau_san_HWW_S', 'EFH_Altbau_san_HWW_SO',
+                     'EFH_Altbau_san_HWW_SW',
+                     'EFH_Altbau_san_WW_S', 'EFH_Altbau_san_WW_SO',
+                     'EFH_Altbau_san_WW_SW',
+                     'MFH_Altbau_san_HWW_S', 'MFH_Altbau_san_HWW_SO',
+                     'MFH_Altbau_san_HWW_SW',
+                     'MFH_Altbau_san_WW_S', 'MFH_Altbau_san_WW_SO',
+                     'MFH_Altbau_san_WW_SW'])
+
+    #timeline_st = pd.DataFrame(columns='st')
+    timeline_st = pd.DataFrame(
+        index=pd.date_range(pd.datetime(year, 1, 1, 0), periods=8760,
+                            freq='H'), columns=['st'])
+
+    for row in range(8760):
+            timeline_st['st'][row] =\
+                        0.15 * read_parameter['EFH_Altbau_san_HWW_S'][row] /\
+                        read_parameter['EFH_Altbau_san_HWW_S'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_HWW_SO'][row] /\
+                        read_parameter['EFH_Altbau_san_HWW_SO'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_HWW_SW'][row] /\
+                        read_parameter['EFH_Altbau_san_HWW_SW'].sum() +\
+                        0.15 * read_parameter['EFH_Altbau_san_WW_S'][row] /\
+                        read_parameter['EFH_Altbau_san_WW_S'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_WW_SO'][row] /\
+                        read_parameter['EFH_Altbau_san_WW_SO'].sum() +\
+                        0.05 * read_parameter['EFH_Altbau_san_WW_SW'][row] /\
+                        read_parameter['EFH_Altbau_san_WW_SW'].sum() +\
+                        0.15 * read_parameter['MFH_Altbau_san_HWW_S'][row] /\
+                        read_parameter['MFH_Altbau_san_HWW_S'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_HWW_SO'][row] /\
+                        read_parameter['MFH_Altbau_san_HWW_SO'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_HWW_SW'][row] /\
+                        read_parameter['MFH_Altbau_san_HWW_SW'].sum() +\
+                        0.15 * read_parameter['MFH_Altbau_san_WW_S'][row] /\
+                        read_parameter['MFH_Altbau_san_WW_S'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_WW_SO'][row] / \
+                        read_parameter['MFH_Altbau_san_WW_SO'].sum() +\
+                        0.05 * read_parameter['MFH_Altbau_san_WW_SW'][row] /\
+                        read_parameter['MFH_Altbau_san_WW_SW'].sum()
+    return(timeline_st)
+
 
 def create_transformer(esystem, region, pp, conn, **kwargs):
 
@@ -184,6 +240,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                         capacity, eta_th_chp[typ], eta_el_chp[typ]),
                 eta=[eta_el_chp[typ], eta_th_chp[typ]],
                 opex_var=opex_var[typ],
+                co2_var=co2_emissions[typ],
                 regions=[region])
 
         ########################## SE_chp #################################
@@ -208,6 +265,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
                 beta=beta_chp[typ],		# power loss index
                 opex_var=opex_var[typ],
+                co2_var=co2_emissions[typ],
                 regions=[region])
 
         ########################## T_el #################################
@@ -227,6 +285,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 out_max=[capacity],
                 eta=[eta_elec[typ]],
                 opex_var=opex_var[typ],
+                co2_var=co2_emissions[typ],
                 regions=[region])
 
         ########################## T_heat #################################
@@ -248,6 +307,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     out_max=[capacity],
                     eta=[eta_th['heat_rod']],
                     opex_var=0,
+                    co2_var=co2_emissions[typ],
                     regions=[region])
             else:
                 transformer.Simple(
@@ -259,7 +319,53 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     out_max=[capacity],
                     eta=[eta_th[typ]],
                     opex_var=opex_var[typ],
+                    co2_var=co2_emissions[typ],
                     regions=[region])
+
+        ########################## lignite LS #################################
+    if region.name == 'LS':
+        typ = 'lignite'
+        capacity = float(pp.query(
+                         'region=="LS" and ressource=="lignite_sp"')[
+                         'power'])
+        transformer.SimpleExtractionCHP(
+            uid=('transformer', region.name, 'lignite_sp', 'SEchp'),
+            inputs=[obj for obj in esystem.entities if obj.uid ==
+                    "('bus', 'global', 'lignite')"],
+            outputs=[[obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'elec')"][0],
+                    [obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'dh')"][0]],
+            in_max=[None],
+            out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
+            out_min=[0.0, 0.0],
+            eta_el_cond=0.4,
+            sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
+            beta=beta_chp[typ],		# power loss index
+            opex_var=opex_var[typ],
+            co2_var=co2_emissions[typ],
+            regions=[region])
+
+        capacity = float(pp.query(
+                         'region=="LS" and ressource=="lignite_jw"')[
+                         'power'])
+        transformer.SimpleExtractionCHP(
+            uid=('transformer', region.name, 'lignite_jw', 'SEchp'),
+            inputs=[obj for obj in esystem.entities if obj.uid ==
+                    "('bus', 'global', 'lignite')"],
+            outputs=[[obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'elec')"][0],
+                    [obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'dh')"][0]],
+            in_max=[None],
+            out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
+            out_min=[0.0, 0.0],
+            eta_el_cond=0.42,  #TODO: softcode
+            sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
+            beta=beta_chp[typ],		# power loss index
+            opex_var=opex_var[typ],
+            co2_var=co2_emissions[typ]*0.08,  # 92% Abscheiderate  #TODO: softcode
+            regions=[region])
 
 
 def get_out_max_chp(capacity, eta_th_chp, eta_el_chp):

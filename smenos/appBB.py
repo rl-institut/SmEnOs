@@ -46,6 +46,8 @@ print(eta_elec)
 transmission = hlsb.get_transmission(conn_oedb, scenario)
 demands_df = hlsb.get_demand(conn_oedb, scenario)
 transformer = hlsb.get_transformer(conn_oedb, scenario)
+st = hlsb.get_st_timeline(conn, year)
+print(st.sum())
 
 ############## Create a simulation object ########################
 simulation = es.Simulation(
@@ -159,6 +161,7 @@ for region in Regions.regions:
         'region==@region.name and ressource=="pv"')['power'])
     ee_capacities['wind_pwr'] = float(transformer.query(
         'region==@region.name and ressource=="wind"')['power'])
+
     opex = {}
     opex['pv_pwr'] = opex_fix['solar_power']
     opex['wind_pwr'] = opex_fix['wind_power']
@@ -169,7 +172,7 @@ for region in Regions.regions:
             outputs=[obj for obj in region.entities if obj.uid ==
                      "('bus', '"+region.name+"', 'elec')"],
             val=feedin_df[stype],
-            out_max=ee_capacities[stype],
+            out_max=[ee_capacities[stype]],
             opex_fix=opex[stype])
 
     # Get power plants from database and write them into a DataFrame
