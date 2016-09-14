@@ -317,6 +317,48 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     opex_var=opex_var[typ],
                     regions=[region])
 
+        ########################## lignite LS #################################
+    if region.name == 'LS':
+        capacity = float(pp.query(
+                         'region=="LS" and ressource=="lignite_sp"')[
+                         'power'])
+        transformer.SimpleExtractionCHP(
+            uid=('transformer', region.name, 'lignite_sp', 'SEchp'),
+            inputs=[obj for obj in esystem.entities if obj.uid ==
+                    "('bus', 'global', 'lignite')"],
+            outputs=[[obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'elec')"][0],
+                    [obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'dh')"][0]],
+            in_max=[None],
+            out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
+            out_min=[0.0, 0.0],
+            eta_el_cond=0.4,
+            sigma=sigma_chp['lignite'],	 # power to heat ratio in backpr. mode
+            beta=beta_chp['lignite'],		# power loss index
+            opex_var=opex_var['lignite'],
+            regions=[region])
+
+        capacity = float(pp.query(
+                         'region=="LS" and ressource=="lignite_jw"')[
+                         'power'])
+        transformer.SimpleExtractionCHP(
+            uid=('transformer', region.name, 'lignite_jw', 'SEchp'),
+            inputs=[obj for obj in esystem.entities if obj.uid ==
+                    "('bus', 'global', 'lignite')"],
+            outputs=[[obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'elec')"][0],
+                    [obj for obj in region.entities if obj.uid ==
+                     "('bus', 'LS', 'dh')"][0]],
+            in_max=[None],
+            out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
+            out_min=[0.0, 0.0],
+            eta_el_cond=0.42,
+            sigma=sigma_chp['lignite'],	 # power to heat ratio in backpr. mode
+            beta=beta_chp['lignite'],		# power loss index
+            opex_var=opex_var['lignite'],
+            regions=[region])
+
 
 def get_out_max_chp(capacity, eta_th_chp, eta_el_chp):
     out_max_th = capacity * eta_th_chp / eta_el_chp
