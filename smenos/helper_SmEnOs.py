@@ -131,6 +131,24 @@ def get_bdew_heatprofile_parameters():
     return bdew_heatprofile_parameters
 
 
+def get_hp_parameters():
+    # share_hp_new_building und share_fbh_old_building können evtl auch
+    # angepasst werden für ausbauszenarien (JAZ im Auge behalten)
+
+    # share of single family houses of all residential buildings that have a
+    # heat pump (share_mfh_hp = 1 - share_sfh_hp)
+    share_sfh_hp = 1
+    share_ww = 0.2  # share of warm water of total heating demand
+    # share of air hp of all heat pumps (share_brine_hp = 1 - share_air_hp)
+    share_air_hp = 0.6  # Anm.: Sole-WP hauptsächlich in Neubauten, sodass
+                        # Anteil von Luft-WP bei Sanierungsszenarien steigt
+    share_heating_rod = 0.42  # share of heating rod in monoenergetic hp
+                              # system
+    share_heat_storage = 0.85  # share of hp systems with heat storage
+    return (share_sfh_hp, share_ww, share_air_hp, share_heating_rod,
+        share_heat_storage)
+
+
 def get_demand(conn, regions):
     sql = """
         SELECT nuts.nuts_id,

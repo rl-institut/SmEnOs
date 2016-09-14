@@ -1,6 +1,12 @@
 #!/usr/bin/python
 # -*- coding: utf-8
 import numpy as np
+import pandas as pd
+
+import helper_SmEnOs as hls
+from oemof.core.network.entities import Bus
+from oemof.core.network.entities.components import sinks as sink
+from oemof.core.network.entities.components import transformers as transformer
 
 
 def calc_brine_supply_temp():
@@ -138,218 +144,207 @@ def cop_ww(temp, ww_profile_sfh, ww_profile_mfh, **kwargs):
     return cop
 
 
-import pandas as pd
+def hp_load_profiles(region, year, demand, share_sfh_hp, share_ww):
+    # splitting of heat load profiles in sfh and mfh as well as ww and heating
+    time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
+    profile_sfh_heating = pd.Series(0, index=time_index)
+    profile_mfh_heating = pd.Series(0, index=time_index)
+    profile_sfh_ww = pd.Series(0, index=time_index)
+    profile_mfh_ww = pd.Series(0, index=time_index)
+    # heat pump demand is derived from value for "Sonstige EE" from the energy
+    # balance under the assumption that this is mostly "Umgebungswärme" used in
+    # heat pumps with 2/3 environmental heat and 1/3 electricity
+    demand_hp = demand * 1.5
+    if share_sfh_hp != 0:
+        profile_sfh_heating = hls.call_heat_demandlib(
+            region, year,
+            annual_heat_demand=(
+                demand_hp * share_sfh_hp * (1 - share_ww)),
+            shlp_type='EFH', ww_incl=False)
+        profile_sfh_heating_ww = hls.call_heat_demandlib(
+            region, year,
+            annual_heat_demand=demand_hp * share_sfh_hp,
+            shlp_type='EFH', ww_incl=True)
+        profile_sfh_ww = profile_sfh_heating_ww - profile_sfh_heating
 
-from oemof import db
-from oemof.db import coastdat
-from oemof.db import tools
-from oemof.core import energy_system as es
-from oemof.solph import predefined_objectives as predefined_objectives
-from oemof.core.network.entities import Bus
-from oemof.core.network.entities.components import sinks as sink
-from oemof.core.network.entities.components import transformers as transformer
-from oemof.db import feedin_pg
-from oemof.core.network.entities.components import sources as source
+    if share_sfh_hp != 1:
+        profile_mfh_heating = hls.call_heat_demandlib(
+            region, year,
+            annual_heat_demand=(
+                demand_hp * (1 - share_sfh_hp) * (1 - share_ww)),
+            shlp_type='MFH', ww_incl=False)
+        profile_mfh_heating_ww = hls.call_heat_demandlib(
+            region, year,
+            annual_heat_demand=demand_hp * (1 - share_sfh_hp),
+            shlp_type='MFH', ww_incl=True)
+        profile_mfh_ww = profile_mfh_heating_ww - profile_mfh_heating
+    return (profile_sfh_heating, profile_mfh_heating, profile_sfh_ww,
+        profile_mfh_ww)
 
-import helper_SmEnOs as hls
 
-year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
-conn = db.connection()
+def create_hp_entities(region, year, demand, elec_bus, temp,
+    share_sfh_hp, share_ww, share_air_hp, share_heating_rod, share_heat_storage,
+    eta_th, eta_in, eta_out, cap_loss, opex_fix):
 
-# Create a simulation object
-simulation = es.Simulation(
-    timesteps=list(range(len(time_index))), verbose=True, solver='cbc',
-    stream_solver_output=True,
-    objective_options={'function': predefined_objectives.minimize_cost})
+    # get profiles
+    (profile_sfh_heating, profile_mfh_heating, profile_sfh_ww,
+    profile_mfh_ww) = hp_load_profiles(
+        region, year, demand, share_sfh_hp, share_ww)
 
-# Create an energy system
-SmEnOsReg = es.EnergySystem(time_idx=time_index, simulation=simulation)
+    # create buses and sinks for each heat pump as well as heating and ww
+    if share_air_hp != 0:
+        # air heat pump heating
+            # bus
+        bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
+                          'air', 'heating'),
+            type='heat_pump_dec', price=0, regions=[region], excess=False)
+            # sink
+        demand = sink.Simple(
+            uid=('demand', region.name, 'residential', 'heat_pump_dec', 'air',
+                 'heating'),
+            inputs=[bus_hp],
+            region=region)
+        demand.val = (profile_sfh_heating + profile_mfh_heating) * share_air_hp
+            # transformer heat pump
+        cop = cop_heating(temp, 'air')
+        transformer.Simple(
+            uid=('transformer', region.name, 'hp', 'air', 'heating'),
+            inputs=[elec_bus],
+            outputs=[bus_hp],
+            out_max=[(max(demand.val) * (1 - share_heating_rod)) * 1.01],
+            eta=[cop],
+            regions=[region])
+        # transformer heating rod
+        transformer.Simple(
+            uid=('transformer', region.name, 'hp', 'air', 'heating', 'rod'),
+            inputs=[elec_bus],
+            outputs=[bus_hp],
+            in_max=[None],
+            out_max=[max(demand.val) * share_heating_rod],
+            eta=[eta_th['heat_rod_dec']],
+            regions=[region])
+        # heat storage
+        transformer.Storage(
+            uid=('storage', region.name, 'hp', 'air', 'heating'),
+            inputs=[bus_hp],
+            outputs=[bus_hp],
+            cap_max=max(demand.val) * 2 * share_heat_storage,
+            out_max=[max(demand.val) * share_heat_storage],
+            in_max=[max(demand.val) * share_heat_storage],
+            eta_in=eta_in['heat_storage_dec'],
+            eta_out=eta_out['heat_storage_dec'],
+            cap_loss=cap_loss['heat_storage_dec'],
+            opex_fix=opex_fix['heat_storage_dec'])
 
-# Add regions to the energy system
-regionsOstdt = pd.DataFrame(
-    [{'abbr': 'BE', 'nutsID': 'DE3'},
-     {'abbr': 'BB', 'nutsID': 'DE4'},
-     {'abbr': 'MV', 'nutsID': 'DE8'},
-     {'abbr': 'SN', 'nutsID': 'DED'},
-     {'abbr': 'ST', 'nutsID': 'DEE'},
-     {'abbr': 'TH', 'nutsID': 'DEG'}],
-    index=['Berlin', 'Brandenburg', 'Mecklenburg-Vorpommern',
-           'Sachsen', 'Sachsen-Anhalt', u'Thüringen'])
-for index, row in regionsOstdt.iterrows():
-    SmEnOsReg.regions.append(es.Region(
-        geom=tools.get_polygon_from_nuts(conn, row['nutsID']),
-        name=row['abbr']))
+        # air heat pump warm water
+            # bus
+        bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
+                          'air', 'ww'),
+            type='heat_pump_dec', price=0, regions=[region], excess=False)
+            # sink
+        demand = sink.Simple(
+            uid=('demand', region.name, 'residential', 'heat_pump_dec', 'air',
+                 'ww'),
+            inputs=[bus_hp],
+            region=region)
+        demand.val = (profile_sfh_ww + profile_mfh_ww) * share_air_hp
+            # transformer heat pump
+        cop = cop_ww(temp, profile_sfh_ww, profile_mfh_ww)
+        transformer.Simple(
+            uid=('transformer', region.name, 'hp', 'air', 'ww'),
+            inputs=[elec_bus],
+            outputs=[bus_hp],
+            out_max=[(max(demand.val) * (1 - share_heating_rod)) * 1.01],
+            eta=[cop],
+            regions=[region])
+            # transformer heating rod
+        transformer.Simple(
+            uid=('transformer', region.name, 'hp', 'air', 'ww', 'rod'),
+            inputs=[elec_bus],
+            outputs=[bus_hp],
+            out_max=[max(demand.val) * share_heating_rod],
+            eta=[eta_th['heat_rod_dec']],
+            regions=[region])
+            # heat storage
+        transformer.Storage(
+            uid=('storage', region.name, 'hp', 'air', 'ww'),
+            inputs=[bus_hp],
+            outputs=[bus_hp],
+            cap_max=max(demand.val) * 2 * share_heat_storage,
+            out_max=[max(demand.val) * share_heat_storage],
+            in_max=[max(demand.val) * share_heat_storage],
+            eta_in=eta_in['heat_storage_dec'],
+            eta_out=eta_out['heat_storage_dec'],
+            cap_loss=cap_loss['heat_storage_dec'],
+            opex_fix=opex_fix['heat_storage_dec'])
 
-region = SmEnOsReg.regions[0]
-demands_df = hls.get_demand(conn, tuple(regionsOstdt['nutsID']))
-nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
-demand_sectors = demands_df.query('nuts_id==@nutID and energy=="heat"')
-sec = 'residential'
-demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
-heat_params = hls.get_bdew_heatprofile_parameters()
-region.share_efh = heat_params.ix[region.name]['share_EFH']
-region.building_class = heat_params.ix[region.name]['building_class']
-region.wind_class = heat_params.ix[region.name]['wind_class']
+    if share_air_hp != 1:
+        # brine heat pump heating
+            # bus
+        bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
+                          'brine', 'heating'),
+            type='heat_pump_dec', price=0, regions=[region], excess=False)
+            # sink
+        demand = sink.Simple(
+            uid=('demand', region.name, 'residential', 'heat_pump_dec', 'brine',
+                 'heating'),
+            inputs=[bus_hp],
+            region=region)
+        demand.val = ((profile_sfh_heating + profile_mfh_heating) *
+            (1 - share_air_hp))
+            # transformer
+        cop = cop_heating(temp, 'brine')
+        transformer.Simple(
+            uid=('transformer', region.name, 'hp', 'brine', 'heating'),
+            inputs=[elec_bus],
+            outputs=[bus_hp],
+            out_max=[max(demand.val)],
+            eta=[cop],
+            regions=[region])
+            # heat storage
+        transformer.Storage(
+            uid=('storage', region.name, 'hp', 'brine', 'heating'),
+            inputs=[bus_hp],
+            outputs=[bus_hp],
+            cap_max=max(demand.val) * 2 * share_heat_storage,
+            out_max=[max(demand.val) * share_heat_storage],
+            in_max=[max(demand.val) * share_heat_storage],
+            eta_in=eta_in['heat_storage_dec'],
+            eta_out=eta_out['heat_storage_dec'],
+            cap_loss=cap_loss['heat_storage_dec'],
+            opex_fix=opex_fix['heat_storage_dec'])
 
-(co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
- eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
- c_rate_in, c_rate_out, eta_in, eta_out,
- cap_loss) = hls.get_parameters()
-
-# get temperature of region as np array [°C]
-multiWeather = coastdat.get_weather(conn, region.geom, year)
-temp = np.zeros([len(multiWeather[0].data.index), ])
-for weather in multiWeather:
-    temp += weather.data['temp_air'].as_matrix()
-temp = pd.Series(temp / len(multiWeather) - 273.15)
-region.temp = temp
-
-ressource = 'heat_pump_dec'
-
-# Add electricity sink for each region
-demands_df = hls.get_demand(conn, tuple(regionsOstdt['nutsID']))
-# create electricity bus
-Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
-    regions=[region], excess=False)
-
-##TODO Wärmespeicher und Heizstab anlegen
-## sole wp monovalent (also nur wp)
-## luft wp monoenergetische (mit Heizstab)
-## 85% der wp mit wärmespeicher, der spitzenlast 2h lang decken kann
-## share_hp_new_building und share_fbh_old_building können evtl auch angepasst
-## werden für ausbauszenarien (JAZ im Auge behalten)
-
-### Inputs
-## share of single family houses of all residential buildings that have a
-## heat pump (share_mfh_hp = 1 - share_sfh_hp)
-#share_sfh_hp = 1
-#share_ww = 0.2  # share of warm water of total heating demand
-## share of air hp of all heat pumps (share_brine_hp = 1 - share_air_hp)
-#share_air_hp = 0.6  # Anm.: Sole-WP hauptsächlich in Neubauten, sodass Anteil
-                    ## von Luft-WP bei Sanierungsszenarien steigt
-
-### Calculation
-## splitting of heat load profiles in sfh and mfh as well as ww and heating
-#profile_sfh_heating = pd.Series(0, index=time_index)
-#profile_mfh_heating = pd.Series(0, index=time_index)
-#profile_sfh_ww = pd.Series(0, index=time_index)
-#profile_mfh_ww = pd.Series(0, index=time_index)
-## heat pump demand is derived from value for "Sonstige EE" from the energy
-## balance under the assumption that this is mostly "Umgebungswärme" used in
-## heat pumps with 2/3 environmental heat and 1/3 electricity
-#demand_hp = demand_sector[ressource] * 1.5
-#if share_sfh_hp != 0:
-    #profile_sfh_heating = hls.call_heat_demandlib(
-        #region, year,
-        #annual_heat_demand=(
-            #demand_hp * share_sfh_hp * (1 - share_ww)),
-        #shlp_type='EFH', ww_incl=False)
-    #profile_sfh_heating_ww = hls.call_heat_demandlib(
-        #region, year,
-        #annual_heat_demand=demand_hp * share_sfh_hp,
-        #shlp_type='EFH', ww_incl=True)
-    #profile_sfh_ww = profile_sfh_heating_ww - profile_sfh_heating
-
-#if share_sfh_hp != 1:
-    #profile_mfh_heating = hls.call_heat_demandlib(
-        #region, year,
-        #annual_heat_demand=(
-            #demand_hp * (1 - share_sfh_hp) * (1 - share_ww)),
-        #shlp_type='MFH', ww_incl=False)
-    #profile_mfh_heating_ww = hls.call_heat_demandlib(
-        #region, year,
-        #annual_heat_demand=demand_hp * (1 - share_sfh_hp),
-        #shlp_type='MFH', ww_incl=True)
-    #profile_mfh_ww = profile_mfh_heating_ww - profile_mfh_heating
-
-## create buses and sinks for each heat pump as well as heating and ww
-#if share_air_hp != 0:
-    ## air heat pump heating
-        ## bus
-    #Bus(uid=('bus', region.name, sec, ressource, 'air', 'heating'),
-        #type=ressource, price=0, regions=[region], excess=False)
-        ## sink
-    #demand = sink.Simple(
-        #uid=('demand', region.name, sec, ressource, 'air', 'heating'),
-        #inputs=[obj for obj in SmEnOsReg.entities
-            #if obj.uid == (
-                #'bus', region.name, sec, ressource, 'air', 'heating')],
-        #region=region)
-    #demand.val = (profile_sfh_heating + profile_mfh_heating) * share_air_hp
-        ## transformer
-    #cop = cop_heating(temp, 'air')
-    #transformer.Simple(
-        #uid=('transformer', region.name, 'hp', 'air', 'heating'),
-        #inputs=[obj for obj in SmEnOsReg.entities
-            #if obj.uid == ('bus', region.name, 'elec')],
-        #outputs=[[obj for obj in region.entities if obj.uid == (
-            #'bus', region.name, sec, ressource, 'air', 'heating')][0]],
-        #in_max=[None],
-        #out_max=[max(demand.val)],
-        #eta=[cop],
-        #opex_var=opex_var['heat_pump_dec'],
-        #regions=[region])
-    ## air heat pump warm water
-        ## bus
-    #Bus(uid=('bus', region.name, sec, ressource, 'air', 'ww'),
-        #type=ressource, price=0, regions=[region], excess=False)
-        ## sink
-    #demand = sink.Simple(
-        #uid=('demand', region.name, sec, ressource, 'air', 'ww'),
-        #inputs=[obj for obj in SmEnOsReg.entities
-            #if obj.uid == (
-                #'bus', region.name, sec, ressource, 'air', 'ww')],
-        #region=region)
-    #demand.val = (profile_sfh_ww + profile_mfh_ww) * share_air_hp
-        ## transformer
-    #cop = cop_ww(temp, profile_sfh_ww, profile_mfh_ww)
-    #transformer.Simple(
-        #uid=('transformer', region.name, 'hp', 'air', 'ww'),
-        #inputs=[obj for obj in SmEnOsReg.entities
-            #if obj.uid == ('bus', region.name, 'elec')],
-        #outputs=[[obj for obj in region.entities if obj.uid == (
-            #'bus', region.name, sec, ressource, 'air', 'ww')][0]],
-        #in_max=[None],
-        #out_max=[max(demand.val)],
-        #eta=[cop],
-        #opex_var=opex_var['heat_pump_dec'],
-        #regions=[region])
-#if share_air_hp != 1:
-    ## brine heat pump heating
-    #Bus(uid=('bus', region.name, sec, ressource, 'brine', 'heating'),
-        #type=ressource, price=0, regions=[region], excess=False)
-    #demand = sink.Simple(
-        #uid=('demand', region.name, sec, ressource, 'brine', 'heating'),
-        #inputs=[obj for obj in SmEnOsReg.entities
-            #if obj.uid == (
-                #'bus', region.name, sec, ressource, 'brine', 'heating')],
-        #region=region)
-    #demand.val = ((profile_sfh_heating + profile_mfh_heating) *
-        #(1 - share_air_hp))
-    ## brine heat pump warm water
-    #Bus(uid=('bus', region.name, sec, ressource, 'brine', 'ww'),
-        #type=ressource, price=0, regions=[region], excess=False)
-    #demand = sink.Simple(
-        #uid=('demand', region.name, sec, ressource, 'brine', 'ww'),
-        #inputs=[obj for obj in SmEnOsReg.entities
-            #if obj.uid == (
-                #'bus', region.name, sec, ressource, 'brine', 'ww')],
-        #region=region)
-    #demand.val = (profile_sfh_ww + profile_mfh_ww) * (1 - share_air_hp)
-
-site = hls.get_res_parameters()
-feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
-    conn, region=region, year=year, bustype='elec', **site)
-for stype in feedin_df.keys():
-    print(feedin_df[stype].values)
-    source.FixedSource(
-        uid=('FixedSrc', region.name, stype),
-        outputs=[obj for obj in region.entities if obj.uid == (
-            'bus', region.name, 'elec')],
-        val=feedin_df[stype].values,
-        out_max=[cap[stype]])
-
-# Optimize the energy system
-SmEnOsReg.optimize()
-#logging.info(SmEnOsReg.dump())
+        # brine heat pump warm water
+            # bus
+        bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
+                          'brine', 'ww'),
+            type='heat_pump_dec', price=0, regions=[region], excess=False)
+            # demand
+        demand = sink.Simple(
+            uid=('demand', region.name, 'residential', 'heat_pump_dec', 'brine',
+                 'ww'),
+            inputs=[bus_hp],
+            region=region)
+        demand.val = (profile_sfh_ww + profile_mfh_ww) * (1 - share_air_hp)
+            # transformer
+        cop = cop_ww(temp, profile_sfh_ww, profile_mfh_ww, type_hp='brine')
+        transformer.Simple(
+            uid=('transformer', region.name, 'hp', 'brine', 'ww'),
+            inputs=[elec_bus],
+            outputs=[bus_hp],
+            out_max=[max(demand.val)],
+            eta=[cop],
+            regions=[region])
+            # heat storage
+        transformer.Storage(
+            uid=('storage', region.name, 'hp', 'brine', 'ww'),
+            inputs=[bus_hp],
+            outputs=[bus_hp],
+            cap_max=max(demand.val) * 2 * share_heat_storage,
+            out_max=[max(demand.val) * share_heat_storage],
+            in_max=[max(demand.val) * share_heat_storage],
+            eta_in=eta_in['heat_storage_dec'],
+            eta_out=eta_out['heat_storage_dec'],
+            cap_loss=cap_loss['heat_storage_dec'],
+            opex_fix=opex_fix['heat_storage_dec'])
+    return
