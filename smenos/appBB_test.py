@@ -15,6 +15,7 @@ from oemof.core.network.entities import Bus
 from oemof.core.network.entities.components import sinks as sink
 from oemof.core.network.entities.components import transports as transport
 from oemof.core.network.entities.components import sources as source
+from oemof.solph.optimization_model import OptimizationModel
 
 import helper_SmEnOs as hls
 import helper_BBB as hlsb
@@ -26,7 +27,7 @@ scenario = 'ES2030'
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
+time_index = pd.date_range('1/1/{0}'.format(year), periods=2, freq='H')
 conn = db.connection()
 conn_oedb = db.connection(section='open_edb')
 
@@ -49,7 +50,7 @@ transformer = hlsb.get_transformer(conn_oedb, scenario)
 
 ############## Create a simulation object ########################
 simulation = es.Simulation(
-    timesteps=list(range(len(time_index))), verbose=True, solver='glpk',
+    timesteps=list(range(len(time_index))), verbose=True, solver='cbc',
     stream_solver_output=True,
     objective_options={'function': predefined_objectives.minimize_cost})
 
@@ -94,11 +95,11 @@ for typ in typeofgen_global:
 for region in Regions.regions:
     # create electricity bus
     Bus(uid="('bus', '"+region.name+"', 'elec')", type='elec', price=0,
-        regions=[region], excess=True, shortage=True, shortage_costs=1000)
+        regions=[region], excess=True, shortage=True, shortage_costs=1000000)
 
     # create districtheat bus
     Bus(uid="('bus', '"+region.name+"', 'dh')", type='dh', price=0,
-        regions=[region], excess=True, shortage=True, shortage_costs=1000)
+        regions=[region], excess=True, shortage=True, shortage_costs=1000000)
 
     # create electricity sink
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
@@ -277,5 +278,7 @@ Regions.connect(ebusBE, ebusUB, in_max=5040, out_max=5040*0.89,
                 transport_class=transport.Simple)
 
 # Optimize the energy system
+om = OptimizationModel(energysystem=Regions)
+om.write_lp_file()
 Regions.optimize()
 logging.info(Regions.dump())
