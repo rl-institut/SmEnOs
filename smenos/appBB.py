@@ -26,7 +26,7 @@ scenario = 'ES2030'
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
+time_index = pd.date_range('1/1/{0}'.format(year), periods=100, freq='H')
 conn = db.connection()
 conn_oedb = db.connection(section='open_edb')
 
@@ -85,18 +85,18 @@ typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
                     'oil', 'waste']
 
 for typ in typeofgen_global:
-    Bus(uid=('bus', 'global', typ), type=typ, price=0,
-        excess=False, regions=Regions.regions)
+    Bus(uid="('bus', 'global', '"+typ+"')", type=typ, price=0,
+        excess=False, balanced=False, regions=Regions.regions)
 
 # Add electricity sink and bus for each region
 for region in Regions.regions:
     # create electricity bus
     Bus(uid="('bus', '"+region.name+"', 'elec')", type='elec', price=0,
-        regions=[region], excess=True, shortage=True, shortage_costs=10e7)
+        regions=[region], excess=True, shortage=True, shortage_costs=1000000.0)
 
     # create districtheat bus
     Bus(uid="('bus', '"+region.name+"', 'dh')", type='dh', price=0,
-        regions=[region], excess=True, shortage=True, shortage_costs=10e7)
+        regions=[region], excess=True, shortage=True, shortage_costs=1000000.0)
 
     # create electricity sink
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
@@ -123,16 +123,18 @@ for region in Regions.regions:
                           ann_el_demand_per_sector=el_demands)
 
 # Add biomass bus for Berlin and Brandenburg
-Bus(uid=('bus', 'BB', 'biomass'),
+Bus(uid="('bus', 'BB', 'biomass')",
     type='biomass',
     price=0,
+    balanced=False,
     sum_out_limit=max_biomass,
     regions=region_bb,
     excess=False)
 
-Bus(uid=('bus', 'BE', 'biomass'),
+Bus(uid="('bus', 'BE', 'biomass')",
     type='biomass',
     price=0,
+    balanced=False,
     regions=[region_ber],
     excess=False)
 
@@ -150,25 +152,25 @@ for region in Regions.regions:
 
     #TODO Problem mit Erdwärme??!!
 
-#    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
-#        conn, region=region, year=year, bustype='elec', **site)
-#    ee_capacities = {}
-#    ee_capacities['pv_pwr'] = float(transformer.query(
-#        'region==@region.name and ressource=="pv"')['power'])
-#    ee_capacities['wind_pwr'] = float(transformer.query(
-#        'region==@region.name and ressource=="wind"')['power'])
-#    opex = {}
-#    opex['pv_pwr'] = opex_fix['solar_power']
-#    opex['wind_pwr'] = opex_fix['wind_power']
-#
-#    for stype in feedin_df.keys():
-#        source.FixedSource(
-#            uid=('FixedSrc', region.name, stype),
-#            outputs=[obj for obj in region.entities if obj.uid ==
-#                "('bus', '"+region.name+"', 'elec')"],
-#            val=feedin_df[stype],
-#            out_max=ee_capacities[stype],
-#            opex_fix=opex[stype])
+    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
+        conn, region=region, year=year, bustype='elec', **site)
+    ee_capacities = {}
+    ee_capacities['pv_pwr'] = float(transformer.query(
+        'region==@region.name and ressource=="pv"')['power'])
+    ee_capacities['wind_pwr'] = float(transformer.query(
+        'region==@region.name and ressource=="wind"')['power'])
+    opex = {}
+    opex['pv_pwr'] = opex_fix['solar_power']
+    opex['wind_pwr'] = opex_fix['wind_power']
+
+    for stype in feedin_df.keys():
+        source.FixedSource(
+            uid=('FixedSrc', region.name, stype),
+            outputs=[obj for obj in region.entities if obj.uid ==
+                     "('bus', '"+region.name+"', 'elec')"],
+            val=feedin_df[stype],
+            out_max=ee_capacities[stype],
+            opex_fix=opex[stype])
 
     # Get power plants from database and write them into a DataFrame
 # TODO: anpassen!!
@@ -196,13 +198,11 @@ for region_name in Import_Regions:
 
 for region in Regions.regions:
     if region.name in Import_Regions:
-        Bus(uid=('bus', region.name, 'elec'), type='elec', price=0,
-            regions=[region], excess=False)
-        source.Commodity(uid=('source', region.name, 'elec'),
-                         regions=[region],
-                         outputs=[obj for obj in region.entities if obj.uid ==
-                                  "('bus', '"+region.name+"', 'elec')"],
-                         opex_var=opex_var['import_el'])
+        Bus(uid="('bus', '"+region.name+"', 'elec')", type='elec',
+            shortage=True,
+            shortage_costs=opex_var['import_el'],
+            regions=[region],
+            excess=False)
 
 # print all entities of every region
 for entity in Regions.entities:
