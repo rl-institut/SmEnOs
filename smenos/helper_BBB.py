@@ -154,14 +154,14 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
     for typ in typeofgen:
         if typ == 'biomass':
             if region.name == 'BE':
-                resourcebus = [obj for obj in esystem.entities if obj.uid == (
-                    'bus', 'BE', typ)]
+                resourcebus = [obj for obj in esystem.entities if obj.uid ==
+                    "('bus', 'BE', '"+typ+"')"]
             else:
-                resourcebus = [obj for obj in esystem.entities if obj.uid == (
-                    'bus', 'BB', typ)]
+                resourcebus = [obj for obj in esystem.entities if obj.uid ==
+                    "('bus', 'BB', '"+typ+"')"]
         else:
-            resourcebus = [obj for obj in esystem.entities if obj.uid == (
-                'bus', 'global', typ)]
+            resourcebus = [obj for obj in esystem.entities if obj.uid ==
+                "('bus', 'global', '"+typ+"')"]
 
         ########################## CHP #################################
         try:
