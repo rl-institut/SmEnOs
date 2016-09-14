@@ -100,8 +100,8 @@ for region in Regions.regions:
 
     # create electricity sink
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
-                         inputs=[obj for obj in Regions.entities
-                                 if obj.uid == ('bus', region.name, 'elec')],
+                         inputs=[obj for obj in region.entities if obj.uid ==
+                                 "('bus', '"+region.name+"', 'elec')"],
                          regions=[region])
     el_demands = {}
     el_demands['h0'] = float(demands_df.query(
@@ -200,8 +200,8 @@ for region in Regions.regions:
             regions=[region], excess=False)
         source.Commodity(uid=('source', region.name, 'elec'),
                          regions=[region],
-                         outputs=[obj for obj in region.entities if obj.uid == (
-                             'bus', region.name, 'elec')],
+                         outputs=[obj for obj in region.entities if obj.uid ==
+                                  "('bus', '"+region.name+"', 'elec')"],
                          opex_var=opex_var['import_el'])
 
 # print all entities of every region
