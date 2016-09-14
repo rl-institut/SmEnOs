@@ -50,7 +50,7 @@ transformer = hlsb.get_transformer(conn_oedb, scenario)
 
 ############## Create a simulation object ########################
 simulation = es.Simulation(
-    timesteps=list(range(len(time_index))), verbose=True, solver='cbc',
+    timesteps=list(range(len(time_index))), verbose=True, solver='glpk',
     stream_solver_output=True,
     objective_options={'function': predefined_objectives.minimize_cost})
 
@@ -89,17 +89,17 @@ typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
 
 for typ in typeofgen_global:
     Bus(uid="('bus', 'global', '"+typ+"')", type=typ, price=0,
-        excess=False, shortage=True, regions=Regions.regions)
+        excess=False, balanced=False, regions=Regions.regions)
 
 # Add electricity sink and bus for each region
 for region in Regions.regions:
     # create electricity bus
     Bus(uid="('bus', '"+region.name+"', 'elec')", type='elec', price=0,
-        regions=[region], excess=True, shortage=True, shortage_costs=1000000)
+        regions=[region], excess=True, shortage=True, shortage_costs=1000000.0)
 
     # create districtheat bus
     Bus(uid="('bus', '"+region.name+"', 'dh')", type='dh', price=0,
-        regions=[region], excess=True, shortage=True, shortage_costs=1000000)
+        regions=[region], excess=True, shortage=True, shortage_costs=1000000.0)
 
     # create electricity sink
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
@@ -157,6 +157,7 @@ for region in Regions.regions:
 Bus(uid="('bus', 'BB', 'biomass')",
     type='biomass',
     price=0,
+    balanced=False,
     sum_out_limit=max_biomass,
     regions=region_bb,
     excess=False)
@@ -164,7 +165,7 @@ Bus(uid="('bus', 'BB', 'biomass')",
 Bus(uid="('bus', 'BE', 'biomass')",
     type='biomass',
     price=0,
-    shortage=True,
+    balanced=False,
     regions=[region_ber],
     excess=False)
 
