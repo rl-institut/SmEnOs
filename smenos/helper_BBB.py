@@ -240,6 +240,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                         capacity, eta_th_chp[typ], eta_el_chp[typ]),
                 eta=[eta_el_chp[typ], eta_th_chp[typ]],
                 opex_var=opex_var[typ],
+                co2_var=co2_emissions[typ],
                 regions=[region])
 
         ########################## SE_chp #################################
@@ -264,6 +265,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
                 beta=beta_chp[typ],		# power loss index
                 opex_var=opex_var[typ],
+                co2_var=co2_emissions[typ],
                 regions=[region])
 
         ########################## T_el #################################
@@ -283,6 +285,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 out_max=[capacity],
                 eta=[eta_elec[typ]],
                 opex_var=opex_var[typ],
+                co2_var=co2_emissions[typ],
                 regions=[region])
 
         ########################## T_heat #################################
@@ -304,6 +307,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     out_max=[capacity],
                     eta=[eta_th['heat_rod']],
                     opex_var=0,
+                    co2_var=co2_emissions[typ],
                     regions=[region])
             else:
                 transformer.Simple(
@@ -315,10 +319,12 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     out_max=[capacity],
                     eta=[eta_th[typ]],
                     opex_var=opex_var[typ],
+                    co2_var=co2_emissions[typ],
                     regions=[region])
 
         ########################## lignite LS #################################
     if region.name == 'LS':
+        typ = 'lignite'
         capacity = float(pp.query(
                          'region=="LS" and ressource=="lignite_sp"')[
                          'power'])
@@ -334,9 +340,10 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
             out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
             out_min=[0.0, 0.0],
             eta_el_cond=0.4,
-            sigma=sigma_chp['lignite'],	 # power to heat ratio in backpr. mode
-            beta=beta_chp['lignite'],		# power loss index
-            opex_var=opex_var['lignite'],
+            sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
+            beta=beta_chp[typ],		# power loss index
+            opex_var=opex_var[typ],
+            co2_var=co2_emissions[typ],
             regions=[region])
 
         capacity = float(pp.query(
@@ -353,10 +360,11 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
             in_max=[None],
             out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
             out_min=[0.0, 0.0],
-            eta_el_cond=0.42,
-            sigma=sigma_chp['lignite'],	 # power to heat ratio in backpr. mode
-            beta=beta_chp['lignite'],		# power loss index
-            opex_var=opex_var['lignite'],
+            eta_el_cond=0.42,  #TODO: softcode
+            sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
+            beta=beta_chp[typ],		# power loss index
+            opex_var=opex_var[typ],
+            co2_var=co2_emissions[typ]*0.08,  # 92% Abscheiderate  #TODO: softcode
             regions=[region])
 
 
