@@ -82,14 +82,6 @@ for region in Regions.regions:
     else:
         region_bb.append(region)  # list
 
-# Add global buses
-typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
-                    'oil', 'waste']
-
-for typ in typeofgen_global:
-    Bus(uid="('bus', 'global', '"+typ+"')", type=typ, price=0,
-        excess=False, balanced=False, regions=Regions.regions)
-
 # Add electricity sink and bus for each region
 for region in Regions.regions:
     # create electricity bus
@@ -124,7 +116,16 @@ for region in Regions.regions:
     hls.call_el_demandlib(demand, method='calculate_profile', year=year,
                           ann_el_demand_per_sector=el_demands)
 
+# Add global buses for BB and BE
+typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
+                    'oil', 'waste']
 # Add biomass bus for Berlin and Brandenburg
+for typ in typeofgen_global:
+    Bus(uid="('bus', 'BB', '"+typ+"')", type=typ, price=0,
+        excess=False, balanced=False, regions=Regions.regions)
+    Bus(uid="('bus', 'BE', '"+typ+"')", type=typ, price=0,
+        excess=False, balanced=False, regions=Regions.regions)
+
 Bus(uid="('bus', 'BB', 'biomass')",
     type='biomass',
     price=0,

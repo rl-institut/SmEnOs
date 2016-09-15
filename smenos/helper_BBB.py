@@ -208,16 +208,12 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
      cap_loss, lifetime, wacc) = get_parameters(conn)
 
     for typ in typeofgen:
-        if typ == 'biomass':
-            if region.name == 'BE':
-                resourcebus = [obj for obj in esystem.entities if obj.uid ==
-                    "('bus', 'BE', '"+typ+"')"]
-            else:
-                resourcebus = [obj for obj in esystem.entities if obj.uid ==
-                    "('bus', 'BB', '"+typ+"')"]
+        if region.name == 'BE':
+            resourcebus = [obj for obj in esystem.entities if obj.uid ==
+                           "('bus', 'BE', '"+typ+"')"]
         else:
             resourcebus = [obj for obj in esystem.entities if obj.uid ==
-                "('bus', 'global', '"+typ+"')"]
+                           "('bus', 'BB', '"+typ+"')"]
 
         ########################## CHP #################################
         try:
@@ -226,7 +222,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 'power'])
         except:
             capacity = 0
-        print(capacity)
         if capacity > 0:
             transformer.CHP(
                 uid=('transformer', region.name, typ, 'chp'),
@@ -331,7 +326,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
         transformer.SimpleExtractionCHP(
             uid=('transformer', region.name, 'lignite_sp', 'SEchp'),
             inputs=[obj for obj in esystem.entities if obj.uid ==
-                    "('bus', 'global', 'lignite')"],
+                    "('bus', 'BB', 'lignite')"],
             outputs=[[obj for obj in region.entities if obj.uid ==
                      "('bus', 'LS', 'elec')"][0],
                     [obj for obj in region.entities if obj.uid ==
@@ -352,7 +347,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
         transformer.SimpleExtractionCHP(
             uid=('transformer', region.name, 'lignite_jw', 'SEchp'),
             inputs=[obj for obj in esystem.entities if obj.uid ==
-                    "('bus', 'global', 'lignite')"],
+                    "('bus', 'BB', 'lignite')"],
             outputs=[[obj for obj in region.entities if obj.uid ==
                      "('bus', 'LS', 'elec')"][0],
                     [obj for obj in region.entities if obj.uid ==
