@@ -115,10 +115,10 @@ for region in SmEnOsReg.regions:
                           annual_elec_demand=el_demand)
 
 # Add heat sinks, buses and transformer for each region, sector and ressource
-#TODO transformer anlegen und FW raus schmeißen
+
 #TODO solar_heat_dec wird nicht betrachtet
 heating_system_commodity = {
-    'hard_coal_dec': 'hard_coal',
+    'hard_coal_dec': 'hard_coal',  # bedarf und Bus
     'lignite_dec': 'lignite',
     'mineral_oil_dec': 'oil',
     'gas_dec': 'natural_gas',
@@ -157,7 +157,7 @@ for region in SmEnOsReg.regions:
                     share_air_hp, share_heating_rod, share_heat_storage,
                     eta_th, eta_in, eta_out, cap_loss, opex_fix)
             elif ressource in list(heating_system_commodity.keys()):
-                # create bus
+                # create bus(bedarfsbus)
                 Bus(uid=('bus', region.name, sec, ressource), type=ressource,
                     price=0, regions=[region], excess=False)
                 # create sink
@@ -230,7 +230,6 @@ for region in SmEnOsReg.regions:
                     annual_heat_demand=(demand_sector[ressource] *
                         (1 - region.share_efh)),
                     shlp_type='MFH', ww_incl=True)
-                demand.val = profile_efh + profile_mfh
                 dh_demand += profile_efh + profile_mfh
             else:
                 print('Folgender Bedarf wird nicht berücksichtigt:')
@@ -378,17 +377,15 @@ for region in SmEnOsReg.regions:
                 dh_demand += hls.call_ind_profile(
                     year, demand_sector[ressource],
                     am=am, pm=pm, profile_factors=profile_factors)
-            #ax = demand.val.plot()
-            #ax.set_xlabel("Hour of the year")
-            #ax.set_ylabel("Heat demand in MW")
-            #plt.show()
+
     # create dh sink
-        ## create sink
-    #demand = sink.Simple(uid=('demand', region.name, sec,
-        #ressource),
-        #inputs=[obj for obj in SmEnOsReg.entities
-            #if obj.uid == ('bus', region.name, 'dh')],
-        #region=region)
+        # create sink
+    demand = sink.Simple(uid=('demand', region.name,
+                              ressource),
+        inputs=[obj for obj in SmEnOsReg.entities
+            if obj.uid == ('bus', region.name, 'dh')],
+        region=region)
+    demand.val = dh_demand
 
 ## Get run-of-river and pumped storage capacities
 ## ror_cap is Series with state abbr, capacity_mw and energy_mwh

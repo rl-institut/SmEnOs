@@ -18,6 +18,7 @@ from oemof.core.network.entities.components import sources as source
 
 import helper_SmEnOs as hls
 import helper_BBB as hlsb
+import helper_dec_BBB as hlsd
 
 # choose scenario
 scenario = 'ES2030'
@@ -41,13 +42,10 @@ max_biomass = 19333333
  c_rate_in, c_rate_out, eta_in, eta_out,
  cap_loss, lifetime, wacc) = hlsb.get_parameters(conn_oedb)
 
-print(eta_elec)
-
 transmission = hlsb.get_transmission(conn_oedb, scenario)
 demands_df = hlsb.get_demand(conn_oedb, scenario)
 transformer = hlsb.get_transformer(conn_oedb, scenario)
-st = hlsb.get_st_timeline(conn, year)
-print(st.sum())
+# st = hlsb.get_st_timeline(conn, year)  # timeline for solar heat
 
 ############## Create a simulation object ########################
 simulation = es.Simulation(
@@ -140,8 +138,18 @@ Bus(uid="('bus', 'BE', 'biomass')",
     balanced=False,
     regions=[region_ber],
     excess=False)
+print("('bus', 'BE', 'biomass')")
 
 ################# create transformers ######################
+                ########### decentral #####################
+hlsd.create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
+                               time_index, eta_th, eta_in, eta_out, cap_loss,
+                               opex_fix, eta_th_chp, eta_el_chp)
+for entity in Regions.entities:
+    print(entity.uid)
+    if entity.uid[0] == 'transformer' or entity.uid[0] == 'FixedSrc':
+        print('out_max')
+        print(entity.out_max)
 # renewable parameters
 site = hls.get_res_parameters()
 
@@ -153,8 +161,15 @@ typeofgen_global.append('powertoheat')
 for region in Regions.regions:
     logging.info('Processing region: {0}'.format(region.name))
 
-    #TODO Problem mit Erdwärme??!!
+                ########### central #####################
+    hlsb.create_transformer(
+        Regions, region, transformer, conn=conn_oedb,
+        cap_initial=cap_initial,
+        chp_faktor_flex=chp_faktor_flex,  # share of flexible generation of CHP
+        typeofgen=typeofgen_global)
 
+    #TODO Problem mit Erdwärme??!!
+                ########### renewables #####################
     feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
         conn, region=region, year=year, bustype='elec', **site)
     ee_capacities = {}
@@ -163,26 +178,13 @@ for region in Regions.regions:
     ee_capacities['wind_pwr'] = float(transformer.query(
         'region==@region.name and ressource=="wind"')['power'])
 
-    opex = {}
-    opex['pv_pwr'] = opex_fix['solar_power']
-    opex['wind_pwr'] = opex_fix['wind_power']
-
     for stype in feedin_df.keys():
         source.FixedSource(
             uid=('FixedSrc', region.name, stype),
             outputs=[obj for obj in region.entities if obj.uid ==
                      "('bus', '"+region.name+"', 'elec')"],
             val=feedin_df[stype],
-            out_max=[ee_capacities[stype]],
-            opex_fix=opex[stype])
-
-    # Get power plants from database and write them into a DataFrame
-# TODO: anpassen!!
-    hlsb.create_transformer(
-        Regions, region, transformer, conn=conn_oedb,
-        cap_initial=cap_initial,
-        chp_faktor_flex=chp_faktor_flex,  # share of flexible generation of CHP
-        typeofgen=typeofgen_global)
+            out_max=[ee_capacities[stype]])
 
 # Remove orphan buses
 buses = [obj for obj in Regions.entities if isinstance(obj, Bus)]
