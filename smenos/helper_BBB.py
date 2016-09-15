@@ -302,7 +302,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     out_max=[capacity],
                     eta=[eta_th['heat_rod']],
                     opex_var=0,
-                    co2_var=co2_emissions[typ],
+                    co2_var=co2_emissions['heat_rod'],
                     regions=[region])
             else:
                 transformer.Simple(
