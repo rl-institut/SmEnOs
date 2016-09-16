@@ -9,6 +9,7 @@ import logging
 import pandas as pd
 import numpy as np
 from datetime import time as settime
+import pyomo.environ as po
 
 from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import sources as source
@@ -374,3 +375,25 @@ def get_out_max_chp_flex(capacity, sigma_chp):
     out = [capacity, out_max_th]
     return out
 
+
+def add_constraint_export_minimum(om):
+
+    Export_Regions = ('MV', 'ST', 'SN', 'KJ', 'BE')
+
+    # returns all transport entities
+    tmp_entities = [obj for obj in om.energysystem.entities
+        if 'transport' in obj.uid]
+    # returns all transport entities with transport to region in Export_Regions
+    exports = [obj for obj in tmp_entities
+        if any(region in obj.outputs[0].uid for region in Export_Regions)]
+    # write list to hand over to constraint
+    transports = []
+    for export in exports:
+        transports += [(export.uid, export.outputs[0].uid)]
+    print(transports)
+    # add new constraint
+    om.export_minimum_constraint = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in transports for t in om.timesteps)
+        >= 42000000))
+
+    return

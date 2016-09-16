@@ -264,5 +264,10 @@ for con in transmission['from']:  # Zeilen in transmission-Tabelle
                             eta=eta_trans,
                             transport_class=transport.Simple)
 # Optimize the energy system
-Regions.optimize()
-logging.info(Regions.dump())
+om = OptimizationModel(energysystem=Regions)
+hlsb.add_constraint_export_minimum(om)
+om.write_lp_file()
+#om.solve()
+#Regions.results = om.results()
+##Regions.optimize()
+#logging.info(Regions.dump())
