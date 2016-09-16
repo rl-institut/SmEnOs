@@ -242,10 +242,6 @@ for entity in Regions.entities:
 
 # Connect the electrical buses of federal states
 
-# change uid tuples to strings
-for entity in Regions.entities:
-    entity.uid = str(entity.uid)
-
 for con in transmission['from']:  # Zeilen in transmission-Tabelle
     capacity = transmission['cap'][con]
     if capacity != 0:
@@ -286,11 +282,16 @@ for con in transmission['from']:  # Zeilen in transmission-Tabelle
                             out_max=capacity,
                             eta=eta_trans,
                             transport_class=transport.Simple)
+
+# change uid tuples to strings
+for entity in Regions.entities:
+    entity.uid = str(entity.uid)
+    print(entity.uid)
+
 # Optimize the energy system
 om = OptimizationModel(energysystem=Regions)
 hlsb.add_constraint_export_minimum(om)
 om.write_lp_file()
-#om.solve()
-#Regions.results = om.results()
-##Regions.optimize()
-#logging.info(Regions.dump())
+om.solve()
+Regions.results = om.results()
+logging.info(Regions.dump())
