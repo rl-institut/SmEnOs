@@ -116,7 +116,7 @@ for region in Regions.regions:
 
 # Add global buses for BB and BE
 typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
-                    'oil', 'waste']
+                    'oil', 'waste', 'hard_coal']
 # Add biomass bus for Berlin and Brandenburg
 for typ in typeofgen_global:
     Bus(uid="('bus', 'BB', '"+typ+"')", type=typ, price=0,
@@ -138,18 +138,13 @@ Bus(uid="('bus', 'BE', 'biomass')",
     balanced=False,
     regions=[region_ber],
     excess=False)
-print("('bus', 'BE', 'biomass')")
 
 ################# create transformers ######################
                 ########### decentral #####################
 hlsd.create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                                time_index, eta_th, eta_in, eta_out, cap_loss,
                                opex_fix, eta_th_chp, eta_el_chp)
-for entity in Regions.entities:
-    print(entity.uid)
-    if entity.uid[0] == 'transformer' or entity.uid[0] == 'FixedSrc':
-        print('out_max')
-        print(entity.out_max)
+               
 # renewable parameters
 site = hls.get_res_parameters()
 
@@ -227,7 +222,6 @@ for entity in Regions.entities:
 
 for con in transmission['from']:  # Zeilen in transmission-Tabelle
     reg1 = transmission['from'][con]  # zeile x,Spalte 'from'
-    print(reg1)
     reg2 = transmission['to'][con]  # zeile x,Spalte 'from'
     capacity = transmission['cap'][con]
     for entity in Regions.entities:
@@ -235,8 +229,6 @@ for con in transmission['from']:  # Zeilen in transmission-Tabelle
             ebus_1 = entity
         if entity.uid == "('bus', '"+reg2+"', 'elec')":
             ebus_2 = entity
-    print(ebus_1)
-    print(ebus_2)
     Regions.connect(ebus_1, ebus_2,
                     in_max=capacity,
                     out_max=capacity,

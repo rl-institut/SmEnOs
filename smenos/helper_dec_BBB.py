@@ -118,7 +118,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     dh_demand += profile_efh + profile_mfh
                 elif ressource == 'bhkw_bio':
                     # create bus(bedarfsbus)
-                    Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                    Bus(uid="('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')", type=ressource,
                         price=0, regions=[region], excess=False)
                     # create sink
                     demand = sink.Simple(uid=('demand', region.name, sec,
@@ -136,16 +136,15 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                             (1 - region.share_efh)),
                         shlp_type='MFH', ww_incl=True)
                     demand.val = (profile_efh + profile_mfh)
-
-                    # create transformer
+                    # create transformer#
                     transformer.CHP(
                         uid=('transformer', region.name, sec, ressource),
-                        inputs=[[obj for obj in Regions.entities if obj.uid == 
-                                "('bus', '"+global_bus+"', 'biomass')"]],
+                        inputs=[obj for obj in Regions.entities if obj.uid == 
+                                "('bus', '"+global_bus+"', 'biomass')"],
                         outputs=[[obj for obj in Regions.entities if obj.uid ==
-                                 "('bus', '"+region.name+"', 'elec')"], 
+                                 "('bus', '"+region.name+"', 'elec')"][0], 
                                 [obj for obj in Regions.entities
-                                if obj.uid == ('bus', region.name, sec, ressource)]],
+                                if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"][0]],
                         out_max=hlsb.get_out_max_chp(
                                 max(demand.val), eta_th_chp[ressource], 
                                 eta_el_chp[ressource]),
@@ -153,7 +152,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         regions=[region])
                 elif ressource == 'bhkw_gas':
                     # create bus(bedarfsbus)
-                    Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                    Bus(uid="('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')", type=ressource,
                         price=0, regions=[region], excess=False)
                     # create sink
                     demand = sink.Simple(uid=('demand', region.name, sec,
@@ -174,12 +173,12 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create transformer
                     transformer.CHP(
                         uid=('transformer', region.name, sec, ressource),
-                        inputs=[[obj for obj in Regions.entities
-                                if obj.uid == "('bus', '"+global_bus+"', 'natural_gas')"]],
-                        outputs=[[obj for obj in region.entities if obj.uid ==
-                                 "('bus', '"+region.name+"', 'elec')"], 
+                        inputs=[obj for obj in Regions.entities
+                                if obj.uid == "('bus', '"+global_bus+"', 'natural_gas')"],
+                        outputs=[[obj for obj in Regions.entities if obj.uid ==
+                                 "('bus', '"+region.name+"', 'elec')"][0],
                                 [obj for obj in Regions.entities
-                                if obj.uid == ('bus', region.name, sec, ressource)]],
+                                if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"][0]],
                         out_max=hlsb.get_out_max_chp(
                                 max(demand.val), eta_th_chp[ressource], eta_el_chp[ressource]),
                         eta=[eta_el_chp[ressource], eta_th_chp[ressource]],
@@ -212,12 +211,16 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand.val = hls.call_heat_demandlib(region, year,
                         annual_heat_demand=data_dem,
                         shlp_type='GHD', ww_incl=True)
+                    print("('bus', '"+global_bus+"', '"+\
+                                heating_system_commodity[ressource]+"')")
                     # create transformer
+                    inputs=[obj for obj in Regions.entities
+                                if obj.uid == "('bus', '"+global_bus+"', '"+heating_system_commodity[ressource]+"')"]
+                    print(inputs)
                     transformer.Simple(
                         uid=('transformer', region.name, sec, ressource),
                         inputs=[obj for obj in Regions.entities
-                                if obj.uid == "('bus', '"+global_bus+"', '"+\
-                                heating_system_commodity[ressource]+"')"],
+                                if obj.uid == "('bus', '"+global_bus+"', '"+heating_system_commodity[ressource]+"')"],
                         outputs=[obj for obj in Regions.entities
                             if obj.uid == ('bus', region.name, sec, ressource)],
                         out_max=[max(demand.val)],
@@ -231,7 +234,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         shlp_type='GHD', ww_incl=True)
                 elif ressource == 'bhkw_bio':
                     # create bus
-                    Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                    Bus(uid="('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')", type=ressource,
                         price=0, regions=[region], excess=False)
                     # create sink
                     demand = sink.Simple(uid=('demand', region.name, sec,
@@ -247,19 +250,19 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create transformer
                     transformer.CHP(
                         uid=('transformer', region.name, sec, ressource),
-                        inputs=[[obj for obj in Regions.entities
-                                if obj.uid == "('bus', '"+global_bus+"', 'biomass')"]],
+                        inputs=[obj for obj in Regions.entities
+                                if obj.uid == "('bus', '"+global_bus+"', 'biomass')"],
                         outputs=[[obj for obj in Regions.entities if obj.uid ==
                                  "('bus', '"+region.name+"', 'elec')"][0], 
                                 [obj for obj in Regions.entities
-                                if obj.uid == ('bus', region.name, sec, ressource)]],
+                                if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"][0]],
                         out_max=hlsb.get_out_max_chp(
                                 max(demand.val), eta_th_chp[ressource], eta_el_chp[ressource]),
                         eta=[eta_el_chp[ressource], eta_th_chp[ressource]],
                         regions=[region])
                 elif ressource == 'bhkw_gas':
                     # create bus
-                    Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                    Bus(uid="('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')", type=ressource,
                         price=0, regions=[region], excess=False)
                     # create sink
                     demand = sink.Simple(uid=('demand', region.name, sec,
@@ -275,12 +278,12 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create transformer
                     transformer.CHP(
                         uid=('transformer', region.name, sec, ressource),
-                        inputs=[[obj for obj in Regions.entities
-                                if obj.uid == "('bus', '"+global_bus+"', 'natural_gas')"]],
+                        inputs=[obj for obj in Regions.entities
+                                if obj.uid == "('bus', '"+global_bus+"', 'natural_gas')"],
                         outputs=[[obj for obj in Regions.entities if obj.uid ==
                                  "('bus', '"+region.name+"', 'elec')"][0], 
                                 [obj for obj in Regions.entities
-                                if obj.uid == ('bus', region.name, sec, ressource)]],
+                                if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"][0]],
                         out_max=hlsb.get_out_max_chp(
                                 max(demand.val), eta_th_chp[ressource], eta_el_chp[ressource]),
                         eta=[eta_el_chp[ressource], eta_th_chp[ressource]],
@@ -324,7 +327,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         regions=[region])
                 elif ressource == 'bhkw_bio':
                     # create bus
-                    Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                    Bus(uid="('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')", type=ressource,
                         price=0, regions=[region], excess=False)
                     # create sink
                     demand = sink.Simple(uid=('demand', region.name, sec,
@@ -340,19 +343,19 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create transformer
                     transformer.CHP(
                         uid=('transformer', region.name, sec, ressource),
-                        inputs=[[obj for obj in Regions.entities
-                                if obj.uid == "('bus', '"+global_bus+"', 'biomass')"]],
-                        outputs=[[obj for obj in region.entities if obj.uid ==
+                        inputs=[obj for obj in Regions.entities
+                                if obj.uid == "('bus', '"+global_bus+"', 'biomass')"],
+                        outputs=[[obj for obj in Regions.entities if obj.uid ==
                                  "('bus', '"+region.name+"', 'elec')"][0], 
                                 [obj for obj in Regions.entities
-                                if obj.uid == ('bus', region.name, sec, ressource)]],
+                                if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"][0]],
                         out_max=hlsb.get_out_max_chp(
                                 max(demand.val), eta_th_chp[ressource], eta_el_chp[ressource]),
                         eta=[eta_el_chp[ressource], eta_th_chp[ressource]],
                         regions=[region])
                 elif ressource == 'bhkw_gas':
                     # create bus
-                    Bus(uid=('bus', region.name, sec, ressource), type=ressource,
+                    Bus(uid="('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')", type=ressource,
                         price=0, regions=[region], excess=False)
                     # create sink
                     demand = sink.Simple(uid=('demand', region.name, sec,
@@ -368,12 +371,12 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create transformer
                     transformer.CHP(
                         uid=('transformer', region.name, sec, ressource),
-                        inputs=[[obj for obj in Regions.entities
-                                if obj.uid == "('bus', '"+global_bus+"', 'natural_gas')"]],
-                        outputs=[[obj for obj in region.entities if obj.uid ==
+                        inputs=[obj for obj in Regions.entities
+                                if obj.uid == "('bus', '"+global_bus+"', 'natural_gas')"],
+                        outputs=[[obj for obj in Regions.entities if obj.uid ==
                                  "('bus', '"+region.name+"', 'elec')"][0], 
                                 [obj for obj in Regions.entities
-                                if obj.uid == ('bus', region.name, sec, ressource)]],
+                                if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"][0]],
                         out_max=hlsb.get_out_max_chp(
                                 max(demand.val), eta_th_chp[ressource], eta_el_chp[ressource]),
                         eta=[eta_el_chp[ressource], eta_th_chp[ressource]],
@@ -388,9 +391,9 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
         # create dh sink
             # create sink
         demand = sink.Simple(uid=('demand', region.name,
-                                  ressource),
+                                  'dh'),
             inputs=[obj for obj in Regions.entities
-                if obj.uid == ('bus', region.name, 'dh')],
+                if obj.uid == "('bus', '"+region.name+"', 'dh')"],
             region=region)
         demand.val = dh_demand
     
