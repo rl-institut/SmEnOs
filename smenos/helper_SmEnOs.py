@@ -137,8 +137,8 @@ def get_hp_parameters():
 
     # share of single family houses of all residential buildings that have a
     # heat pump (share_mfh_hp = 1 - share_sfh_hp)
-    share_sfh_hp = 1
-    share_ww = 0.2  # share of warm water of total heating demand
+    share_sfh_hp = 0.5
+    share_ww = 0  # share of warm water of total heating demand
     # share of air hp of all heat pumps (share_brine_hp = 1 - share_air_hp)
     share_air_hp = 0.6  # Anm.: Sole-WP hauptsächlich in Neubauten, sodass
                         # Anteil von Luft-WP bei Sanierungsszenarien steigt
