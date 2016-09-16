@@ -376,10 +376,7 @@ def get_out_max_chp_flex(capacity, sigma_chp):
     return out
 
 
-def add_constraint_export_minimum(om):
-
-    Export_Regions = ('MV', 'ST', 'SN', 'KJ', 'BE')
-
+def add_constraint_export_minimum(om, Export_Regions):
     # returns all transport entities
     tmp_entities = [obj for obj in om.energysystem.entities
         if 'transport' in obj.uid]
@@ -390,10 +387,67 @@ def add_constraint_export_minimum(om):
     transports = []
     for export in exports:
         transports += [(export.uid, export.outputs[0].uid)]
-    print(transports)
     # add new constraint
     om.export_minimum_constraint = po.Constraint(expr=(
         sum(om.w[i, o, t] for i, o in transports for t in om.timesteps)
         >= 42000000))
+    return
 
+
+def add_constraint_co2_emissions(om, co2_emissions):
+
+    # fossil ressources
+    global_ressources = ['natural_gas', 'natural_gas_cc', 'lignite',
+        'oil', 'waste', 'hard_coal']
+
+    # create list of global ressource buses BB
+    list_global_ressource_buses = []
+    for ressource in global_ressources:
+        list_global_ressource_buses += ["('bus', 'BB', '" + ressource + "')"]
+    # create list with entities of global ressource buses
+    global_ressource_buses_bb = [obj for obj in om.energysystem.entities
+        if any(bus in obj.uid for bus in list_global_ressource_buses)]
+
+    # create list of global ressource buses BE
+    list_global_ressource_buses = []
+    for ressource in global_ressources:
+        list_global_ressource_buses += ["('bus', 'BE', '" + ressource + "')"]
+    # create list with entities of global ressource buses
+    global_ressource_buses_be = [obj for obj in om.energysystem.entities
+        if any(bus in obj.uid for bus in list_global_ressource_buses)]
+
+    # biogas
+    biogas_transformer = [obj for obj in om.energysystem.entities
+        if 'bhkw_bio' in obj.uid and 'transformer' in obj.uid]
+    bb_regions = ['PO', 'UB', 'HF', 'OS', 'LS']
+    biogas_transformer_bb = [obj for obj in biogas_transformer
+        if any(region in obj.uid for region in bb_regions)]
+    biogas_transformer_be = [obj for obj in biogas_transformer
+        if 'BE' in obj.uid]
+
+    # write list to hand over to BB constraint
+    co2_source_bb = []
+    for bus in global_ressource_buses_bb:
+        co2_source_bb += [(bus.uid, bus.outputs[0].uid, bus)]
+    for transformer in biogas_transformer_bb:
+        co2_source_bb += [(transformer.inputs[0].uid, transformer.uid, bus)]
+
+    # write list to hand over to BE constraint
+    co2_source_be = []
+    for bus in global_ressource_buses_be:
+        co2_source_be += [(bus.uid, bus.outputs[0].uid, bus)]
+    for transformer in biogas_transformer_be:
+        co2_source_be += [(transformer.inputs[0].uid, transformer.uid, bus)]
+
+    # add new constraint BB
+    om.co2_emissions_bb = po.Constraint(expr=(
+        sum(om.w[i, o, t] * co2_emissions[b.type]
+        for i, o, b in co2_source_bb for t in om.timesteps)
+        >= 20500000))
+
+    # add new constraint BE
+    om.co2_emissions_be = po.Constraint(expr=(
+        sum(om.w[i, o, t] * co2_emissions[b.type]
+        for i, o, b in co2_source_be for t in om.timesteps)
+        >= 12900000))
     return
