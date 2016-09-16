@@ -15,10 +15,12 @@ from oemof.core.network.entities import Bus
 from oemof.core.network.entities.components import sinks as sink
 from oemof.core.network.entities.components import transports as transport
 from oemof.core.network.entities.components import sources as source
+from oemof.solph.optimization_model import OptimizationModel
 
 import helper_SmEnOs as hls
 import helper_BBB as hlsb
 import helper_dec_BBB as hlsd
+import numpy as np
 
 # choose scenario
 scenario = 'ES2030'
@@ -27,7 +29,7 @@ scenario = 'ES2030'
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=100, freq='H')
+time_index = pd.date_range('1/1/{0}'.format(year), periods=200, freq='H')
 conn = db.connection()
 conn_oedb = db.connection(section='open_edb')
 
@@ -138,13 +140,14 @@ Bus(uid="('bus', 'BE', 'biomass')",
     balanced=False,
     regions=[region_ber],
     excess=False)
+print("('bus', 'BE', 'biomass')")
 
 ################# create transformers ######################
                 ########### decentral #####################
 hlsd.create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                                time_index, eta_th, eta_in, eta_out, cap_loss,
                                opex_fix, eta_th_chp, eta_el_chp)
-               
+
 # renewable parameters
 site = hls.get_res_parameters()
 
@@ -221,20 +224,37 @@ for entity in Regions.entities:
     entity.uid = str(entity.uid)
 
 for con in transmission['from']:  # Zeilen in transmission-Tabelle
-    reg1 = transmission['from'][con]  # zeile x,Spalte 'from'
-    reg2 = transmission['to'][con]  # zeile x,Spalte 'from'
     capacity = transmission['cap'][con]
-    for entity in Regions.entities:
-        if entity.uid == "('bus', '"+reg1+"', 'elec')":
-            ebus_1 = entity
-        if entity.uid == "('bus', '"+reg2+"', 'elec')":
-            ebus_2 = entity
-    Regions.connect(ebus_1, ebus_2,
-                    in_max=capacity,
-                    out_max=capacity,
-                    eta=0.985,  # TODO: eta_elec['transmission'],
-                    transport_class=transport.Simple)
-
+    if capacity != 0:
+        reg1 = transmission['from'][con]  # zeile x,Spalte 'from'
+        reg2 = transmission['to'][con]  # zeile x,Spalte 'from'
+        eta_trans = 0.985  # TODO: eta_elec['transmission']
+        for entity in Regions.entities:
+            if entity.uid == "('bus', '" + reg1 + "', 'elec')":
+                ebus_1 = entity
+            if entity.uid == "('bus', '" + reg2 + "', 'elec')":
+                ebus_2 = entity
+        # if transport to MV or ST, limit export in times of wind feedin > 0.9
+        if reg2 in ['MV', 'ST']:
+            wind_feedin = pd.read_csv('res_timeseries_' + reg1 + '.csv')
+            wind_feedin['transport_condition'] = np.where(
+                wind_feedin['wind_pwr'] >= 0.9, 0, 1)
+            transport.Simple(
+                uid='transport_' + ebus_1.uid + ebus_2.uid,
+                outputs=[ebus_1], inputs=[ebus_2],
+                out_max=[capacity], in_max=[capacity], eta=[eta_trans],
+                ub_out=[wind_feedin['transport_condition'] * capacity])
+            transport.Simple(
+                uid='transport_' + ebus_2.uid + ebus_1.uid,
+                outputs=[ebus_2], inputs=[ebus_1],
+                out_max=[capacity], in_max=[capacity], eta=[eta_trans],
+                ub_out=[wind_feedin['transport_condition'] * capacity])
+        else:
+            Regions.connect(ebus_1, ebus_2,
+                            in_max=capacity,
+                            out_max=capacity,
+                            eta=eta_trans,
+                            transport_class=transport.Simple)
 # Optimize the energy system
 Regions.optimize()
 logging.info(Regions.dump())
