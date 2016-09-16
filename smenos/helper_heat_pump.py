@@ -238,45 +238,46 @@ def create_hp_entities(region, year, demand, elec_bus, temp,
 
         # air heat pump warm water
             # bus
-        bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
+        if share_ww != 0:
+            bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
                           'air', 'ww'),
             type='heat_pump_dec', price=0, regions=[region], excess=False)
-            # sink
-        demand = sink.Simple(
-            uid=('demand', region.name, 'residential', 'heat_pump_dec', 'air',
-                 'ww'),
-            inputs=[bus_hp],
-            region=region)
-        demand.val = (profile_sfh_ww + profile_mfh_ww) * share_air_hp
-            # transformer heat pump
-        cop = cop_ww(temp, profile_sfh_ww, profile_mfh_ww)
-        transformer.Simple(
-            uid=('transformer', region.name, 'hp', 'air', 'ww'),
-            inputs=[elec_bus],
-            outputs=[bus_hp],
-            out_max=[(max(demand.val) * (1 - share_heating_rod)) * 1.01],
-            eta=[cop],
-            regions=[region])
-            # transformer heating rod
-        transformer.Simple(
-            uid=('transformer', region.name, 'hp', 'air', 'ww', 'rod'),
-            inputs=[elec_bus],
-            outputs=[bus_hp],
-            out_max=[max(demand.val) * share_heating_rod],
-            eta=[eta_th['heat_rod_dec']],
-            regions=[region])
-            # heat storage
-        transformer.Storage(
-            uid=('storage', region.name, 'hp', 'air', 'ww'),
-            inputs=[bus_hp],
-            outputs=[bus_hp],
-            cap_max=max(demand.val) * 2 * share_heat_storage,
-            out_max=[max(demand.val) * share_heat_storage],
-            in_max=[max(demand.val) * share_heat_storage],
-            eta_in=eta_in['heat_storage_dec'],
-            eta_out=eta_out['heat_storage_dec'],
-            cap_loss=cap_loss['heat_storage_dec'],
-            opex_fix=opex_fix['heat_storage_dec'])
+                # sink
+            demand = sink.Simple(
+                uid=('demand', region.name, 'residential', 'heat_pump_dec', 'air',
+                     'ww'),
+                inputs=[bus_hp],
+                region=region)
+            demand.val = (profile_sfh_ww + profile_mfh_ww) * share_air_hp
+                # transformer heat pump
+            cop = cop_ww(temp, profile_sfh_ww, profile_mfh_ww)
+            transformer.Simple(
+                uid=('transformer', region.name, 'hp', 'air', 'ww'),
+                inputs=[elec_bus],
+                outputs=[bus_hp],
+                out_max=[(max(demand.val) * (1 - share_heating_rod)) * 1.01],
+                eta=[cop],
+                regions=[region])
+                # transformer heating rod
+            transformer.Simple(
+                uid=('transformer', region.name, 'hp', 'air', 'ww', 'rod'),
+                inputs=[elec_bus],
+                outputs=[bus_hp],
+                out_max=[max(demand.val) * share_heating_rod],
+                eta=[eta_th['heat_rod_dec']],
+                regions=[region])
+                # heat storage
+            transformer.Storage(
+                uid=('storage', region.name, 'hp', 'air', 'ww'),
+                inputs=[bus_hp],
+                outputs=[bus_hp],
+                cap_max=max(demand.val) * 2 * share_heat_storage,
+                out_max=[max(demand.val) * share_heat_storage],
+                in_max=[max(demand.val) * share_heat_storage],
+                eta_in=eta_in['heat_storage_dec'],
+                eta_out=eta_out['heat_storage_dec'],
+                cap_loss=cap_loss['heat_storage_dec'],
+                opex_fix=opex_fix['heat_storage_dec'])
 
     if share_air_hp != 1:
         # brine heat pump heating
@@ -316,35 +317,36 @@ def create_hp_entities(region, year, demand, elec_bus, temp,
 
         # brine heat pump warm water
             # bus
-        bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
-                          'brine', 'ww'),
-            type='heat_pump_dec', price=0, regions=[region], excess=False)
-            # demand
-        demand = sink.Simple(
-            uid=('demand', region.name, 'residential', 'heat_pump_dec', 'brine',
-                 'ww'),
-            inputs=[bus_hp],
-            region=region)
-        demand.val = (profile_sfh_ww + profile_mfh_ww) * (1 - share_air_hp)
-            # transformer
-        cop = cop_ww(temp, profile_sfh_ww, profile_mfh_ww, type_hp='brine')
-        transformer.Simple(
-            uid=('transformer', region.name, 'hp', 'brine', 'ww'),
-            inputs=[elec_bus],
-            outputs=[bus_hp],
-            out_max=[max(demand.val)],
-            eta=[cop],
-            regions=[region])
-            # heat storage
-        transformer.Storage(
-            uid=('storage', region.name, 'hp', 'brine', 'ww'),
-            inputs=[bus_hp],
-            outputs=[bus_hp],
-            cap_max=max(demand.val) * 2 * share_heat_storage,
-            out_max=[max(demand.val) * share_heat_storage],
-            in_max=[max(demand.val) * share_heat_storage],
-            eta_in=eta_in['heat_storage_dec'],
-            eta_out=eta_out['heat_storage_dec'],
-            cap_loss=cap_loss['heat_storage_dec'],
-            opex_fix=opex_fix['heat_storage_dec'])
+        if share_ww != 0:
+            bus_hp = Bus(uid=('bus', region.name, 'residential', 'heat_pump_dec',
+                              'brine', 'ww'),
+                type='heat_pump_dec', price=0, regions=[region], excess=False)
+                # demand
+            demand = sink.Simple(
+                uid=('demand', region.name, 'residential', 'heat_pump_dec', 'brine',
+                     'ww'),
+                inputs=[bus_hp],
+                region=region)
+            demand.val = (profile_sfh_ww + profile_mfh_ww) * (1 - share_air_hp)
+                # transformer
+            cop = cop_ww(temp, profile_sfh_ww, profile_mfh_ww, type_hp='brine')
+            transformer.Simple(
+                uid=('transformer', region.name, 'hp', 'brine', 'ww'),
+                inputs=[elec_bus],
+                outputs=[bus_hp],
+                out_max=[max(demand.val)],
+                eta=[cop],
+                regions=[region])
+                # heat storage
+            transformer.Storage(
+                uid=('storage', region.name, 'hp', 'brine', 'ww'),
+                inputs=[bus_hp],
+                outputs=[bus_hp],
+                cap_max=max(demand.val) * 2 * share_heat_storage,
+                out_max=[max(demand.val) * share_heat_storage],
+                in_max=[max(demand.val) * share_heat_storage],
+                eta_in=eta_in['heat_storage_dec'],
+                eta_out=eta_out['heat_storage_dec'],
+                cap_loss=cap_loss['heat_storage_dec'],
+                opex_fix=opex_fix['heat_storage_dec'])
     return
