@@ -82,6 +82,9 @@ for region in Regions.regions:
     else:
         region_bb.append(region)  # list
 
+emob_DE = pd.read_csv('data_mob_bev.csv', delimiter=',')
+emob_BB = emob_DE['sink_fixed'] * 2183000 / emob_DE['sink_fixed'].sum()
+
 # Add electricity sink and bus for each region
 for region in Regions.regions:
     # create electricity bus
@@ -115,22 +118,39 @@ for region in Regions.regions:
         'demand'])
     hls.call_el_demandlib(demand, method='calculate_profile', year=year,
                           ann_el_demand_per_sector=el_demands)
+    print(demand.val)
+    if region.name != 'BE':
+        demand = sink.Simple(uid=('demand', region.name, 'elec', 'mob'),
+                         inputs=[obj for obj in region.entities if obj.uid ==
+                                 "('bus', '"+region.name+"', 'elec')"],
+                         regions=[region])
+        emob = emob_BB * 0.2
+        demand.val = emob
+        print('emob')
+        print(demand.val)
 
 # Add global buses for BB and BE
 typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
                     'oil', 'waste', 'hard_coal']
 # Add biomass bus for Berlin and Brandenburg
 for typ in typeofgen_global:
-    Bus(uid="('bus', 'BB', '"+typ+"')", type=typ, price=0,
-        excess=False, balanced=False, regions=Regions.regions)
-    Bus(uid="('bus', 'BE', '"+typ+"')", type=typ, price=0,
-        excess=False, balanced=False, regions=Regions.regions)
+    Bus(uid="('bus', 'BB', '"+typ+"')",
+        type=typ, price=0,
+        excess=False, balanced=False,
+        co2_var=co2_emissions[typ],
+        regions=Regions.regions)
+    Bus(uid="('bus', 'BE', '"+typ+"')",
+        type=typ, price=0,
+        excess=False, balanced=False,
+        co2_var=co2_emissions[typ],
+        regions=Regions.regions)
 
 Bus(uid="('bus', 'BB', 'biomass')",
     type='biomass',
     price=0,
     balanced=False,
     sum_out_limit=max_biomass,
+    co2_var=co2_emissions['biomass'],
     regions=region_bb,
     excess=False)
 
@@ -138,6 +158,7 @@ Bus(uid="('bus', 'BE', 'biomass')",
     type='biomass',
     price=0,
     balanced=False,
+    co2_var=co2_emissions['biomass'],
     regions=[region_ber],
     excess=False)
 print("('bus', 'BE', 'biomass')")
@@ -168,8 +189,10 @@ for region in Regions.regions:
 
     #TODO Problem mit Erdwärme??!!
                 ########### renewables #####################
-    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
-        conn, region=region, year=year, bustype='elec', **site)
+    feedin_df = pd.read_csv(
+        'res_timeseries_'+region.name+'.csv', delimiter=',', index_col=0)
+#    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
+#        conn, region=region, year=year, bustype='elec', **site)
     ee_capacities = {}
     ee_capacities['pv_pwr'] = float(transformer.query(
         'region==@region.name and ressource=="pv"')['power'])
