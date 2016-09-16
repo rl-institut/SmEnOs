@@ -80,6 +80,9 @@ for region in Regions.regions:
     else:
         region_bb.append(region)  # list
 
+emob_DE = pd.read_csv('data_mob_bev.csv', delimiter=',')
+emob_BB = emob_DE['sink_fixed'] * 2183000 / emob_DE['sink_fixed'].sum()
+
 # Add electricity sink and bus for each region
 for region in Regions.regions:
     # create electricity bus
@@ -113,6 +116,16 @@ for region in Regions.regions:
         'demand'])
     hls.call_el_demandlib(demand, method='calculate_profile', year=year,
                           ann_el_demand_per_sector=el_demands)
+    print(demand.val)
+    if region.name != 'BE':
+        demand = sink.Simple(uid=('demand', region.name, 'elec', 'mob'),
+                         inputs=[obj for obj in region.entities if obj.uid ==
+                                 "('bus', '"+region.name+"', 'elec')"],
+                         regions=[region])
+        emob = emob_BB * 0.2
+        demand.val = emob
+        print('emob')
+        print(demand.val)
 
 # Add global buses for BB and BE
 typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
