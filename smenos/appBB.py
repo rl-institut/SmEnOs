@@ -234,21 +234,29 @@ for con in transmission['from']:  # Zeilen in transmission-Tabelle
                 ebus_1 = entity
             if entity.uid == "('bus', '" + reg2 + "', 'elec')":
                 ebus_2 = entity
-        # if transport to MV or ST, limit export in times of wind feedin > 0.9
-        if reg2 in ['MV', 'ST']:
-            wind_feedin = pd.read_csv('res_timeseries_' + reg1 + '.csv')
-            wind_feedin['transport_condition'] = np.where(
-                wind_feedin['wind_pwr'] >= 0.9, 0, 1)
-            transport.Simple(
-                uid='transport_' + ebus_1.uid + ebus_2.uid,
-                outputs=[ebus_1], inputs=[ebus_2],
-                out_max=[capacity], in_max=[capacity], eta=[eta_trans],
-                ub_out=[wind_feedin['transport_condition'] * capacity])
-            transport.Simple(
-                uid='transport_' + ebus_2.uid + ebus_1.uid,
-                outputs=[ebus_2], inputs=[ebus_1],
-                out_max=[capacity], in_max=[capacity], eta=[eta_trans],
-                ub_out=[wind_feedin['transport_condition'] * capacity])
+        # if reg2 is not BB or BE only create transport into the region
+        if reg2 in Import_Regions:
+            # if transport to MV or ST, limit export in times of wind
+            # feedin > 0.9
+            if reg2 in ['MV', 'ST']:
+                wind_feedin = pd.read_csv('res_timeseries_' + reg1 + '.csv')
+                wind_feedin['transport_condition'] = np.where(
+                    wind_feedin['wind_pwr'] >= 0.9, 0, 1)
+                transport.Simple(
+                    uid='transport_' + ebus_1.uid + ebus_2.uid,
+                    inputs=[ebus_1], outputs=[ebus_2],
+                    out_max=[capacity], in_max=[capacity], eta=[eta_trans],
+                    ub_out=[wind_feedin['transport_condition'] * capacity])
+                #transport.Simple(
+                    #uid='transport_' + ebus_2.uid + ebus_1.uid,
+                    #outputs=[ebus_2], inputs=[ebus_1],
+                    #out_max=[capacity], in_max=[capacity], eta=[eta_trans],
+                    #ub_out=[wind_feedin['transport_condition'] * capacity])
+            else:
+                transport.Simple(
+                    uid='transport_' + ebus_1.uid + ebus_2.uid,
+                    inputs=[ebus_1], outputs=[ebus_2],
+                    out_max=[capacity], in_max=[capacity], eta=[eta_trans])
         else:
             Regions.connect(ebus_1, ebus_2,
                             in_max=capacity,
