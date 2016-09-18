@@ -9,7 +9,7 @@ from oemof import db
 from oemof.tools import logger
 from oemof.core import energy_system as es
 from oemof.db import tools
-from oemof.db import feedin_pg
+#from oemof.db import feedin_pg
 from oemof.solph import predefined_objectives as predefined_objectives
 from oemof.core.network.entities import Bus
 from oemof.core.network.entities.components import sinks as sink
