@@ -430,14 +430,16 @@ def add_constraint_co2_emissions(om, co2_emissions):
     for bus in global_ressource_buses_bb:
         co2_source_bb += [(bus.uid, bus.outputs[0].uid, bus)]
     for transformer in biogas_transformer_bb:
-        co2_source_bb += [(transformer.inputs[0].uid, transformer.uid, bus)]
+        co2_source_bb += [(
+            transformer.inputs[0].uid, transformer.uid, transformer.inputs[0])]
 
     # write list to hand over to BE constraint
     co2_source_be = []
     for bus in global_ressource_buses_be:
         co2_source_be += [(bus.uid, bus.outputs[0].uid, bus)]
     for transformer in biogas_transformer_be:
-        co2_source_be += [(transformer.inputs[0].uid, transformer.uid, bus)]
+        co2_source_be += [(
+            transformer.inputs[0].uid, transformer.uid, transformer.inputs[0])]
 
     # add new constraint BB
     om.co2_emissions_bb = po.Constraint(expr=(
