@@ -29,7 +29,7 @@ scenario = 'ES2030'
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=8760/2, freq='H')
+time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
 conn = db.connection()
 conn_oedb = db.connection(section='open_edb')
 
@@ -37,8 +37,8 @@ conn_oedb = db.connection(section='open_edb')
 
 cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
-max_biomass = 16111111 / 2  # 58 PJ per year
-energy_emob_BB = 2183000  #7,86 PJ per year (10% of whole traffic)
+max_biomass = 16111111  # 58 PJ per year
+energy_emob_BB = 2183000  # 7,86 PJ per year (10% of whole traffic)
 # parameters
 (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
  eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
@@ -230,7 +230,7 @@ for region in Regions.regions:
             shortage=True,
             shortage_costs=opex_var['import_el'],
             regions=[region],
-            excess=False)
+            excess=True)
 
 # print all entities of every region
 for entity in Regions.entities:
