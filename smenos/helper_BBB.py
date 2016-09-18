@@ -390,7 +390,7 @@ def add_constraint_export_minimum(om, Export_Regions):
     # add new constraint
     om.export_minimum_constraint = po.Constraint(expr=(
         sum(om.w[i, o, t] for i, o in transports for t in om.timesteps)
-        >= 42000000))
+        >= 42000000 / 2))
     return
 
 
@@ -443,11 +443,11 @@ def add_constraint_co2_emissions(om, co2_emissions):
     om.co2_emissions_bb = po.Constraint(expr=(
         sum(om.w[i, o, t] * co2_emissions[b.type]
         for i, o, b in co2_source_bb for t in om.timesteps)
-        <= 20500000))
+        <= 20500000 / 2))
 
     # add new constraint BE
     om.co2_emissions_be = po.Constraint(expr=(
         sum(om.w[i, o, t] * co2_emissions[b.type]
         for i, o, b in co2_source_be for t in om.timesteps)
-        <= 12900000))
+        <= 12900000 / 2))
     return
