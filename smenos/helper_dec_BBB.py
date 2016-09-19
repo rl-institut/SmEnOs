@@ -125,7 +125,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand = sink.Simple(uid=('demand', region.name, sec,
                         ressource),
                         inputs=[obj for obj in Regions.entities
-                            if obj.uid == ('bus', region.name, sec, ressource)],
+                            if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"],
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
@@ -159,7 +159,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand = sink.Simple(uid=('demand', region.name, sec,
                         ressource),
                         inputs=[obj for obj in Regions.entities
-                            if obj.uid == ('bus', region.name, sec, ressource)],
+                            if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"],
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
@@ -238,7 +238,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand = sink.Simple(uid=('demand', region.name, sec,
                         ressource),
                         inputs=[obj for obj in Regions.entities
-                            if obj.uid == ('bus', region.name, sec, ressource)],
+                            if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"],
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
@@ -266,7 +266,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand = sink.Simple(uid=('demand', region.name, sec,
                         ressource),
                         inputs=[obj for obj in Regions.entities
-                            if obj.uid == ('bus', region.name, sec, ressource)],
+                            if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"],
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
@@ -333,7 +333,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand = sink.Simple(uid=('demand', region.name, sec,
                         ressource),
                         inputs=[obj for obj in Regions.entities
-                            if obj.uid == ('bus', region.name, sec, ressource)],
+                            if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"],
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
@@ -361,7 +361,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand = sink.Simple(uid=('demand', region.name, sec,
                         ressource),
                         inputs=[obj for obj in Regions.entities
-                            if obj.uid == ('bus', region.name, sec, ressource)],
+                            if obj.uid == "('bus', '"+region.name+"', '"+sec+"', '"+ressource+"')"],
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
