@@ -291,6 +291,7 @@ for entity in Regions.entities:
 om = OptimizationModel(energysystem=Regions)
 hlsb.add_constraint_export_minimum(om, Export_Regions)
 hlsb.add_constraint_co2_emissions(om, co2_emissions)
+hlsb.add_constraint_sum_pth(om)
 om.write_lp_file()
 om.solve()
 Regions.results = om.results()

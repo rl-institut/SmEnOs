@@ -453,3 +453,18 @@ def add_constraint_co2_emissions(om, co2_emissions):
         for i, o, b in co2_source_be for t in om.timesteps)
         <= 12900000))
     return
+
+
+def add_constraint_sum_pth(om):
+    pth_entitiy = [obj for obj in om.energysystem.entities
+        if obj.uid == "('transformer', 'BE', 'powertoheat')"]
+    # write list to hand over to constraint
+    pth = []
+    for entity in pth_entitiy:
+        pth += [(entity.uid, entity.outputs[0].uid)]
+    # add new constraint
+    om.sum_pth = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in pth for t in om.timesteps)
+        <= 100500))
+    return
+
