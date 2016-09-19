@@ -25,7 +25,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
 
     heating_system_commodity = {
         'hard_coal_dec': 'hard_coal',
-        'hard_coal_dec_ind': 'hard_coal',# bedarf und Bus
+        'hard_coal_dec_ind': 'hard_coal', #  bedarf und Bus
         'lignite_dec': 'lignite',
         'lignite_dec_ind': 'lignite',
         'oil_dec': 'oil',
@@ -42,7 +42,6 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
             global_bus = 'BE'
         else:
             global_bus = 'BB'
-        print(region)
         # get regional heat demand for different ressources
         regID = region.name
         demand_sectors = demands_df.query('region==@regID')
@@ -195,6 +194,8 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
         region.wind_class = heat_params.ix[global_bus]['wind_class']
         region.building_class = None
         for ressource in list(demand_sectors.query("sector==@sec")['type']):
+            data_dem = float(demand_sectors.query(
+                        "sector==@sec and type==@ressource")['demand'])
             if data_dem != 0:
                 if ressource == 'electricity':
                     pass                
@@ -213,12 +214,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     demand.val = hls.call_heat_demandlib(region, year,
                         annual_heat_demand=data_dem,
                         shlp_type='GHD', ww_incl=True)
-                    print("('bus', '"+global_bus+"', '"+\
-                                heating_system_commodity[ressource]+"')")
                     # create transformer
-                    inputs=[obj for obj in Regions.entities
-                                if obj.uid == "('bus', '"+global_bus+"', '"+heating_system_commodity[ressource]+"')"]
-                    print(inputs)
                     transformer.Simple(
                         uid=('transformer', region.name, sec, ressource),
                         inputs=[obj for obj in Regions.entities
@@ -296,8 +292,10 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     print(sec)
                     print(ressource)
         # industrial sector
-        sec = 'industrial'
+        sec = 'IND'
         for ressource in list(demand_sectors.query("sector==@sec")['type']):
+            data_dem = float(demand_sectors.query(
+                        "sector==@sec and type==@ressource")['demand'])
             if data_dem != 0:
                 if ressource == 'electricity':
                     pass

@@ -127,8 +127,6 @@ for region in Regions.regions:
                          regions=[region])
         emob = emob_BB * 0.2
         demand.val = emob
-        print('emob')
-        print(demand.val)
 
 # Add global buses for BB and BE
 typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',

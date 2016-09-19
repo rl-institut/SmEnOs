@@ -134,9 +134,9 @@ def stack_plot(energysystem, reg, bus, date_from, date_to):
                            date_to=date_to)
     myplot.color_from_dict(cdict)
 
-    fig = plt.figure(figsize=(24, 14))
-    plt.rc('legend', **{'fontsize': 19})
-    plt.rcParams.update({'font.size': 19})
+    fig = plt.figure(figsize=(40, 14))
+    plt.rc('legend', **{'fontsize': 18})
+    plt.rcParams.update({'font.size': 18})
     plt.style.use('grayscale')
 
     handles, labels = myplot.io_plot(
@@ -152,7 +152,7 @@ def stack_plot(energysystem, reg, bus, date_from, date_to):
     myplot.outside_legend(handles=handles, labels=labels)
 
     plt.show()
-    return
+    return (fig)
 
 
 def sum_max_output_of_component(energysystem, from_uid, to_uid):
@@ -232,7 +232,9 @@ def print_validation_outputs(energysystem, reg):
         "('transformer', '"+reg+"', 'lignite_sp', 'SEchp')"]
 
     ebus = "('bus', '"+reg+"', 'elec')"
+    dh = "('bus', '"+reg+"', 'dh')"
     short = "('bus', '"+reg+"', 'elec')_shortage"
+    short_dh = "('bus', '"+reg+"', 'dh')_shortage"
     excess = "('bus', '"+reg+"', 'elec')_excess"
     summe_plant_dict = {}
     for p in pp:
@@ -255,6 +257,12 @@ def print_validation_outputs(energysystem, reg):
         energysystem, short, ebus)
     print(('el_shortage_sum:' + str(summe_plant)))
     print(('el_shortage_max:' + str(maximum)))
+    print('\n')
+
+    summe_plant, maximum = sum_max_output_of_component(
+        energysystem, short_dh, dh)
+    print(('dh_shortage_sum:' + str(summe_plant)))
+    print(('dh_shortage_max:' + str(maximum)))
     print('\n')
 
     # excess
@@ -310,12 +318,13 @@ energysystem = create_es(
     'cbc', [t for t in range(8760)], str(year))
 energysystem.restore()
 
-reg = 'OS'
-bus = 'elec'
+reg = 'UB'
+bus = 'dh'
 date_from = "2010-01-01 00:00:00"
-date_to = "2010-01-04 00:00:00"
+date_to = "2010-01-05 00:00:00"
 #
-stack_plot(energysystem, reg, bus, date_from, date_to)
+fig = stack_plot(energysystem, reg, bus, date_from, date_to)
+#fig.savefig('/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario1 mit allen constraints/'+reg+'_'+bus+'.png')
 
 ## anteil ee
 #print(res_share(energysystem))
