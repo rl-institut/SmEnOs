@@ -436,7 +436,8 @@ def add_constraint_co2_emissions(om, co2_emissions):
     # write list to hand over to BB constraint
     co2_source_bb = []
     for bus in global_ressource_buses_bb:
-        co2_source_bb += [(bus.uid, bus.outputs[0].uid, bus)]
+        for output in bus.outputs:
+            co2_source_bb += [(bus.uid, output.uid, bus)]
     for transformer in biogas_transformer_bb:
         co2_source_bb += [(
             transformer.inputs[0].uid, transformer.uid, transformer.inputs[0])]
@@ -444,7 +445,8 @@ def add_constraint_co2_emissions(om, co2_emissions):
     # write list to hand over to BE constraint
     co2_source_be = []
     for bus in global_ressource_buses_be:
-        co2_source_be += [(bus.uid, bus.outputs[0].uid, bus)]
+        for output in bus.outputs:
+            co2_source_be += [(bus.uid, output.uid, bus)]
     for transformer in biogas_transformer_be:
         co2_source_be += [(
             transformer.inputs[0].uid, transformer.uid, transformer.inputs[0])]
@@ -463,16 +465,71 @@ def add_constraint_co2_emissions(om, co2_emissions):
     return
 
 
-def add_constraint_sum_pth(om):
-    pth_entitiy = [obj for obj in om.energysystem.entities
-        if obj.uid == "('transformer', 'BE', 'powertoheat')"]
+def add_constraint_entities_BE(om):
+    # Primärenergieverbrauch
+    transformer_uids = {
+        # Heizwerke
+        "('heat_transformer', 'BE', 'oil')": 346000,
+        "('heat_transformer', 'BE', 'natural_gas')": 918000,
+        "('heat_transformer', 'BE', 'biomass')": 113000,
+        # Kraftwerke
+        "('transformer', 'BE', 'oil')": 71000,
+        "('transformer', 'BE', 'natural_gas')": 2939000,
+        "('transformer', 'BE', 'biomass')": 932000,
+        "('transformer', 'BE', 'powertoheat')": 1005000,
+        # Heizkraftwerke KWK
+        "('transformer', 'BE', 'oil', 'SEchp')": 621000,
+        "('transformer', 'BE', 'natural_gas_cc', 'SEchp')": 23713000,
+        "('transformer', 'BE', 'biomass', 'SEchp')": 425000
+        }
+    BE_entities = []
+    for key in list(transformer_uids.keys()):
+        print(key)
+        BE_entities += [obj for obj in om.energysystem.entities
+            if obj.uid == key]
     # write list to hand over to constraint
-    pth = []
-    for entity in pth_entitiy:
-        pth += [(entity.uid, entity.outputs[0].uid)]
-    # add new constraint
-    om.sum_pth = po.Constraint(expr=(
-        sum(om.w[i, o, t] for i, o in pth for t in om.timesteps)
-        <= 100500))
+    BE_transformer = []
+    for entity in BE_entities:
+        BE_transformer += [(entity.inputs[0].uid, entity.uid)]
+    # add new constraints
+    transformer = BE_transformer[0]
+    om.sum_transformer_1 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[1]
+    om.sum_transformer_2 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[2]
+    om.sum_transformer_3 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[3]
+    om.sum_transformer_4 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[4]
+    om.sum_transformer_5 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[5]
+    om.sum_transformer_6 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[6]
+    om.sum_transformer_7 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[7]
+    om.sum_transformer_8 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[8]
+    om.sum_transformer_9 = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
+    transformer = BE_transformer[9]
+    om.sum_transformer_a = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in [transformer] for t in om.timesteps)
+        <= transformer_uids[transformer[1]]))
     return
-
