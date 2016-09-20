@@ -1,5 +1,7 @@
 # -*- coding: utf-8
 
+from oemof import db
+import helper_BBB as hlsb
 import pandas as pd
 import matplotlib.pyplot as plt
 from oemof.core import energy_system as es
@@ -312,6 +314,49 @@ def print_exports(energysystem):
     print('export_gesamt:')
     print(export_all)
 
+
+def co2(energysystem):
+    conn_oedb = db.connection(section='open_edb')
+    (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
+     eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
+     c_rate_in, c_rate_out, eta_in, eta_out,
+     cap_loss, lifetime, wacc) = hlsb.get_parameters(conn_oedb)
+
+    # fossil ressources
+    global_ressources = ['natural_gas', 'natural_gas_cc', 'lignite',
+        'oil', 'waste', 'hard_coal']
+    # create list of global ressource buses BB
+    list_global_ressource_buses = []
+    for ressource in global_ressources:
+        list_global_ressource_buses += ["('bus', 'BB', '" + ressource + "')"]
+    # create list with entities of global ressource buses
+    global_ressource_buses_bb = [obj for obj in energysystem.entities
+        if any(bus in obj.uid for bus in list_global_ressource_buses)]
+    # get yearly energy
+    co2 = 0
+    for bus in global_ressource_buses_bb:
+        for output in bus.outputs:
+            summe, maximum = sum_max_output_of_component(
+                energysystem, bus.uid, output.uid)
+            co2 += summe * co2_emissions[bus.type]
+
+    # biogas
+    biogas_transformer = [obj for obj in energysystem.entities
+        if 'bhkw_bio' in obj.uid and 'transformer' in obj.uid]
+    bb_regions = ['PO', 'UB', 'HF', 'OS', 'LS']
+    biogas_transformer_bb = [obj for obj in biogas_transformer
+        if any(region in obj.uid for region in bb_regions)]
+
+    # write list to hand over to BB constraint
+    for transformer in biogas_transformer_bb:
+        summe, maximum = sum_max_output_of_component(
+            energysystem, transformer.inputs[0].uid, transformer.uid)
+        co2 += summe * co2_emissions[transformer.inputs[0].type]
+    print('Total CO2 emissions in BB:')
+    print(co2)
+    return co2
+
+
 # load dumped energy system
 year = 2050
 energysystem = create_es(
@@ -338,7 +383,7 @@ wind_time = timeseries_of_component(
             energysystem, "('FixedSrc', '"+reg+"', 'wind_pwr')", ebus)
 demand_time = timeseries_of_component(
             energysystem, ebus, "('demand', '"+reg+"', 'elec')")
-            
+
 res = pd.DataFrame(index=range(len(demand_time)), columns=['ee', 'pv', 'wind'])
 for i in range(len(demand_time)):
     fee = demand_time[i] - pv_time[i] - wind_time[i]
@@ -361,7 +406,7 @@ print(ee_share)
 print('pv share:')
 print(pv_share)
 print('wind share:')
-print(wind_share)    
+print(wind_share)
 
 print_exports(energysystem)
 
