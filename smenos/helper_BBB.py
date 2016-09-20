@@ -383,13 +383,21 @@ def add_constraint_export_minimum(om, Export_Regions):
     # returns all transport entities with transport to region in Export_Regions
     exports = [obj for obj in tmp_entities
         if any(region in obj.outputs[0].uid for region in Export_Regions)]
+    # returns all transport entities that import from Berlin
+    imports = [obj for obj in tmp_entities
+        if 'BE' in obj.inputs[0].uid]
     # write list to hand over to constraint
-    transports = []
+    transports_ex = []
     for export in exports:
-        transports += [(export.uid, export.outputs[0].uid)]
+        transports_ex += [(export.uid, export.outputs[0].uid)]
+    # write list to hand over to constraint
+    transports_im = []
+    for imp in imports:
+        transports_im += [(imp.uid, imp.outputs[0].uid)]
     # add new constraint
     om.export_minimum_constraint = po.Constraint(expr=(
-        sum(om.w[i, o, t] for i, o in transports for t in om.timesteps)
+        sum(om.w[i, o, t] for i, o in transports_ex for t in om.timesteps) -
+        sum(om.w[i, o, t] for i, o in transports_im for t in om.timesteps)
         >= 42000000))
     return
 
