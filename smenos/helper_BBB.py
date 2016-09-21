@@ -58,7 +58,11 @@ def get_parameters(conn_oedb):
     eta_th = parameters['eta_th']
     eta_el_chp = parameters['eta_el_chp']
     eta_th_chp = parameters['eta_th_chp']
+
     eta_chp_flex_el = parameters['eta_chp_flex_el']
+    eta_chp_flex_el['jaenschwalde'] = 0.42
+    eta_chp_flex_el['schwarzepumpe'] = 0.4
+
     sigma_chp = parameters['sigma_chp']
     beta_chp = parameters['beta_chp']
 
@@ -335,7 +339,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
             in_max=[None],
             out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
             out_min=[0.0, 0.0],
-            eta_el_cond=0.4,
+            eta_el_cond=eta_chp_flex_el['schwarzepumpe'],
             sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
             beta=beta_chp[typ],		# power loss index
             opex_var=opex_var[typ],
@@ -356,7 +360,7 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
             in_max=[None],
             out_max=get_out_max_chp_flex(capacity, sigma_chp['lignite']),
             out_min=[0.0, 0.0],
-            eta_el_cond=0.42,  #TODO: softcode
+            eta_el_cond=eta_chp_flex_el['jaenschwalde'],  #TODO: softcode
             sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
             beta=beta_chp[typ],		# power loss index
             opex_var=opex_var[typ],
