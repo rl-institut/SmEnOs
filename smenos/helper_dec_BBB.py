@@ -390,10 +390,18 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
     
         # create dh sink
             # create sink
-        demand = sink.Simple(uid=('demand', region.name,
-                                  'dh'),
+        demand = sink.Simple(uid=('demand', region.name, 'dh'),
             inputs=[obj for obj in Regions.entities
-                if obj.uid == "('bus', '"+region.name+"', 'dh')"],
+                    if obj.uid == "('bus', '"+region.name+"', 'dh')"],
             region=region)
+
         demand.val = dh_demand
-    
+        transformer.Simple(
+            uid=('transformer', region.name, 'dh_peak_heating'),
+            inputs=[obj for obj in Regions.entities
+                    if obj.uid == "('bus', '"+global_bus+"', 'natural_gas')"],
+            outputs=[obj for obj in Regions.entities
+                    if obj.uid == "('bus', '"+region.name+"', 'dh')"],
+            out_max=[max(demand.val)],
+            eta=[eta_th['natural_gas']],
+            regions=[region])
