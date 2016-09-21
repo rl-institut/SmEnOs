@@ -39,6 +39,13 @@ cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
 max_biomass = 16111111  # 58 PJ per year
 energy_emob_BB = 2183000  # 7,86 PJ per year (10% of whole traffic)
+share_emob = {}
+share_emob['PO'] = 0.16
+share_emob['UB'] = 0.12
+share_emob['HF'] = 0.29
+share_emob['OS'] = 0.17
+share_emob['LS'] = 0.25
+
 # parameters
 (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
  eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
@@ -125,7 +132,7 @@ for region in Regions.regions:
                          inputs=[obj for obj in region.entities if obj.uid ==
                                  "('bus', '"+region.name+"', 'elec')"],
                          regions=[region])
-        emob = emob_BB * 0.2
+        emob = emob_BB * share_emob[region.name]
         demand.val = emob
 
 # Add global buses for BB and BE
@@ -225,19 +232,21 @@ for region_name in Import_Regions:
 for region in Regions.regions:
     if region.name in Import_Regions:
         Bus(uid="('bus', '"+region.name+"', 'elec')", type='elec',
-            shortage=True,
-            shortage_costs=opex_var['import_el'],
             regions=[region],
             excess=True)
+        Bus(uid="('bus', '"+region.name+"', 'import')", type='elec',
+            shortage=True,
+            shortage_costs=opex_var['import_el'],
+            regions=[region])
 
-# print all entities of every region
-for entity in Regions.entities:
-    print(entity.uid)
-    if entity.uid[0] == 'transformer' or entity.uid[0] == 'FixedSrc':
-        print('out_max')
-        print(entity.out_max)
-        print('type(out_max)')
-        print(type(entity.out_max))
+## print all entities of every region
+#for entity in Regions.entities:
+#    print(entity.uid)
+#    if entity.uid[0] == 'transformer' or entity.uid[0] == 'FixedSrc':
+#        print('out_max')
+#        print(entity.out_max)
+#        print('type(out_max)')
+#        print(type(entity.out_max))
 
 # Connect the electrical buses of federal states
 
