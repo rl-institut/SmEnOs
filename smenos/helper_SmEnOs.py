@@ -332,8 +332,8 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
         # choose the right bus for type of generation (biomass: regional bus)
         # and add biomass capacity from energymap between 5 and 10 MW
         if typ == 'biomass':
-            resourcebus = [obj for obj in esystem.entities if obj.uid == (
-                'bus', region.name, typ)]
+            resourcebus = [obj for obj in esystem.entities if obj.uid ==
+                "('bus', '"+region.name+"', '"+typ+"')"]
 
             capacity_chp_el[typ] = capacity_chp_el[typ] + p_bio5to10
 
@@ -343,10 +343,10 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                 # takes from resource bus
                 inputs=resourcebus,
                 # puts in electricity and heat bus
-                outputs=[[obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'elec')][0],
-                    [obj for obj in region.entities if obj.uid == (
-                        'bus', region.name, 'dh')][0]],
+                outputs=[[obj for obj in region.entities if obj.uid ==
+                        "('bus', '"+region.name+"', 'elec')"][0],
+                        [obj for obj in region.entities if obj.uid ==
+                        "('bus', '"+region.name+"', 'dh')"][0]],
                 #TODO: Wärme auf den richtigen bus legen!!!!
                 in_max=[None],
                 out_max=[p_el_bhkw, p_th_bhkw],
@@ -354,18 +354,18 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                 opex_var=opex_var[typ],
                 regions=[region])
         else:  # not biomass
-            resourcebus = [obj for obj in esystem.entities if obj.uid == (
-                'bus', 'global', typ)]
+            resourcebus = [obj for obj in esystem.entities if obj.uid ==
+                "('bus', 'global', '" +typ+ "')"]
 
         if capacity_chp_el[typ] > 0:
 
             transformer.CHP(
                 uid=('transformer', region.name, typ, 'chp'),
                 inputs=resourcebus,
-                outputs=[[obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'elec')][0],
-                    [obj for obj in region.entities if obj.uid == (
-                        'bus', region.name, 'dh')][0]],
+                outputs=[[obj for obj in region.entities if obj.uid ==
+                        "('bus', '"+region.name+"', 'elec')"][0],
+                        [obj for obj in region.entities if obj.uid ==
+                        "('bus', '"+region.name+"', 'dh')"][0]],
                 in_max=[None],
                 out_max=get_out_max_chp(capacity_chp_el[typ], chp_faktor_flex,
                                         eta_th_chp[typ], eta_el_chp[typ]),
@@ -376,10 +376,10 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             transformer.SimpleExtractionCHP(
                 uid=('transformer', region.name, typ, 'SEchp'),
                 inputs=resourcebus,
-                outputs=[[obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'elec')][0],
-                    [obj for obj in region.entities if obj.uid == (
-                        'bus', region.name, 'dh')][0]],
+                outputs=[[obj for obj in region.entities if obj.uid ==
+                        "('bus', '"+region.name+"', 'elec')"][0],
+                        [obj for obj in region.entities if obj.uid ==
+                        "('bus', '"+region.name+"', 'dh')"][0]],
                 in_max=[None],
                 out_max=get_out_max_chp_flex(capacity_chp_el[typ],
                                              chp_faktor_flex, sigma_chp[typ]),
@@ -394,8 +394,8 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
             transformer.Simple(
                 uid=('transformer', region.name, typ),
                 inputs=resourcebus,
-                outputs=[[obj for obj in region.entities if obj.uid == (
-                    'bus', region.name, 'elec')][0]],
+                outputs=[[obj for obj in region.entities if obj.uid ==
+                        "('bus', '"+region.name+"', 'elec')"][0]],
                 in_max=[None],
                 out_max=[float(capacity[typ])],
                 eta=[eta_elec[typ]],
@@ -410,11 +410,11 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
         transformer.Storage(
             uid=('Storage', region.name, typ),
             # nimmt von strombus
-            inputs=[obj for obj in esystem.entities if obj.uid == (
-                'bus', region.name, 'elec')],
+            inputs=[[obj for obj in esystem.entities if obj.uid ==
+                    "('bus', '"+region.name+"', 'elec')"][0]],
             # speist auf strombus ein
-            outputs=[obj for obj in region.entities if obj.uid == (
-                'bus', region.name, 'elec')],
+            outputs=[[obj for obj in region.entities if obj.uid ==
+                    "('bus', '"+region.name+"', 'elec')"][0]],
             cap_max=float(sum(pumped_storage[pumped_storage[
                 'state_short'].isin([region.name])]['capacity_mwh'])),
             cap_min=0,
@@ -440,8 +440,8 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
         source.FixedSource(
             uid=('FixedSrc', region.name, 'hydro'),
             # speist auf strombus ein
-            outputs=[obj for obj in region.entities if obj.uid == (
-                'bus', region.name, 'elec')],
+            outputs=[obj for obj in region.entities if obj.uid ==
+                    "('bus', '"+region.name+"', 'elec')"],
             val=scale_profile_to_sum_of_energy(
                 filename=kwargs.get('filename_hydro'),
                 energy=energy,
