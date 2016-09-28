@@ -182,6 +182,13 @@ def timeseries_of_component(energysystem, from_uid, to_uid):
         if obj.uid == (to_uid)][0]]
     return results_bus_component
 
+def timeseries_of_component_dh(energysystem, from_uid, to_uid):
+    results_bus = energysystem.results[[obj for obj in energysystem.entities
+        if obj.uid == (from_uid)][0]]
+    results_bus_component = results_bus[[obj for obj in energysystem.entities
+        if obj.uid == (to_uid)][0]]
+    return results_bus_component
+
 
 def print_validation_outputs(energysystem, reg, results_dc):
 
@@ -218,7 +225,7 @@ def print_validation_outputs(energysystem, reg, results_dc):
         "('transformer', '"+reg+"', 'powertoheat')"]
 
     ebus = "('bus', '"+reg+"', 'elec')"
-    dh = "('bus', '"+reg+"', 'dh')"
+    dhbus = "('bus', '"+reg+"', 'dh')"
     short = "('bus', '"+reg+"', 'elec')_shortage"
     short_dh = "('bus', '"+reg+"', 'dh')_shortage"
     excess = "('bus', '"+reg+"', 'elec')_excess"
@@ -242,10 +249,10 @@ def print_validation_outputs(energysystem, reg, results_dc):
         print('\n')
         try:  # heat transformer
             summe_plant_dict['dh'+p], maximum = sum_max_output_of_component(
-                energysystem, p, dh)
+                energysystem, p, dhbus)
             print(('sum:' + str(summe_plant_dict['dh'+p])))
             print(('max:' + str(maximum)))
-            results_dc['sum '+ reg + str(p)+'_dh'] = summe_plant_dict[p]
+            results_dc['sum '+ reg + str(p)+'_dh'] = summe_plant_dict['dh'+p]
             results_dc['max '+ reg + str(p)+'_dh'] = maximum
         except:
             print('nicht vorhanden')
@@ -531,7 +538,7 @@ def get_supply_demand_timeseries(energysystem):
 
 ################# get results ############################
 
-path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_1_1_ohne_Export_constraint/'
+path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario1_1_mit_allen_constraints/'
 # load dumped energy system
 year = 2050
 energysystem = create_es(
@@ -560,26 +567,24 @@ results_dc['co2_all_BB'] = co2(energysystem)
 
 supply_demand_time = get_supply_demand_timeseries(energysystem)
 supply_demand_time.to_csv(path+'supply_minus_demand.csv')
+
+print_exports(energysystem, results_dc)
+
+print_im_exports(energysystem, results_dc)
+
+for reg in regions_BBB:
+    week = 'winter'
+    print_validation_outputs(energysystem, reg, results_dc)
+    get_share_ee(energysystem, reg, results_dc)
     
-
-#print_exports(energysystem, results_dc)
-#
-#print_im_exports(energysystem, results_dc)
-
-#for reg in regions_BBB:
-#    week = 'winter'
-##    print_validation_outputs(energysystem, reg, results_dc)
-##    get_share_ee(energysystem, reg, results_dc)
-##    
 #    for bus in buses:      
 #        fig = stack_plot(energysystem, reg, bus, date_from[week], date_to[week])
 #        fig.savefig(path+reg+'_'+bus+'_'+week+'.png')
 
-#x = list(results_dc.keys())
-#y = list(results_dc.values())
-#f = open(
-#    path + '_results.csv','w', newline='')
-#w = csv.writer(f, delimiter=';')
-#w.writerow(x)
-#w.writerow(y)
-#f.close
+x = list(results_dc.keys())
+y = list(results_dc.values())
+f = open(path + '_results.csv', 'w', newline='')
+w = csv.writer(f, delimiter=';')
+w.writerow(x)
+w.writerow(y)
+f.close
