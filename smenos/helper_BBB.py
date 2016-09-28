@@ -220,6 +220,46 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
             resourcebus = [obj for obj in esystem.entities if obj.uid ==
                            "('bus', 'BB', '"+typ+"')"]
 
+        ########################## BHKW ,30% Fernwärme, 70 nur strom  ########
+        if typ == 'bhkw_bio':
+            try:
+                capacity = float(pp.query(
+                    'region==@region.name and ressource==@typ and transformer=="bhkw"')[
+                    'power'])
+            except:
+                capacity = 0
+            if capacity > 0:
+                cap = capacity * 0.3
+                transformer.CHP(
+                    uid=('transformer', region.name, typ, 'dh'),
+                    inputs=[obj for obj in esystem.entities if obj.uid ==
+                           "('bus', 'BB', 'biomass')"],
+                    outputs=[[obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'elec')"][0],
+                            [obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'dh')"][0]],
+                    in_max=[None],
+                    out_max=get_out_max_chp(
+                            cap, eta_th_chp[typ], eta_el_chp[typ]),
+                    eta=[eta_el_chp[typ], eta_th_chp[typ]],
+                    opex_var=opex_var[typ],
+                    co2_var=co2_emissions[typ],
+                    regions=[region])
+
+                cap_2 = capacity * 0.7
+                transformer.Simple(
+                    uid=('transformer', region.name, typ),
+                    inputs=[obj for obj in esystem.entities if obj.uid ==
+                           "('bus', 'BB', 'biomass')"],
+                    outputs=[[obj for obj in region.entities if obj.uid ==
+                         "('bus', '"+region.name+"', 'elec')"][0]],
+                    in_max=[None],
+                    out_max=[cap_2],
+                    eta=[eta_el_chp[typ]],
+                    opex_var=opex_var[typ],
+                    co2_var=co2_emissions[typ],
+                    regions=[region])
+
         ########################## CHP #################################
         try:
             capacity = float(pp.query(

@@ -182,6 +182,7 @@ site = hls.get_res_parameters()
 # because its needed to generate powerplants from db
 typeofgen_global.append('biomass')
 typeofgen_global.append('powertoheat')
+typeofgen_global.append('bhkw_bio')
 
 for region in Regions.regions:
     logging.info('Processing region: {0}'.format(region.name))

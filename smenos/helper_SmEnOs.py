@@ -239,6 +239,54 @@ def get_opsd_pps(conn, geometry):
     return df
 
 
+def get_kwdb_pps(conn, geometry):
+    de_en = {
+        'lignite': 'lignite',
+        'lignite': 'lignite',
+        'hard_coal': 'hard_coal',
+        'coal': 'hard_coal',
+        'Erdgas': 'natural_gas',
+        'Öl': 'oil',
+        'mineral_oil': 'oil',
+        'Solarstrom': 'solar_power',
+        'solar':'solar_power',
+        'uran':'uran',
+        'Windkraft': 'wind_power',
+        'refuse': 'waste',
+        'Biomasse': 'biomass',
+        'biomass': 'biomass',
+        'Wasserkraft': 'hydro_power',
+        'other_fuels': 'waste',
+        'run_of_river': 'hydro_power',
+        'gas': 'natural_gas',
+        'mine_gas':'natural_gas',
+        'landfill_gas':'natural_gas',
+        'Mineralölprodukte': 'mineral_oil',
+        'multiple_fuels': 'waste',
+        'waste': 'waste',
+        'Sonstige Energieträger\n(nicht erneuerbar) ': 'waste',
+        'other_non_renewable': 'waste',
+        'Pumpspeicher': 'pumped_storage',
+        'pumped_storage': 'pumped_storage',
+        'Erdwärme': 'geo_heat',
+        'gas': 'natural_gas',
+        'onshore': 'onshore'}
+    translator = lambda x: de_en[x]
+
+    sql = """
+        SELECT fuel, kwk, status, rated_power
+        FROM oemof.register_conventional_power_plants as pp
+        WHERE st_contains(
+        ST_GeomFromText('{wkt}',4326), ST_Transform(pp.geom, 4326))
+        """.format(wkt=geometry.wkt)
+    df = pd.DataFrame(
+        conn.execute(sql).fetchall(), columns=['type', 'chp', 'status',
+                                               'cap_el'])
+    df['type'] = df['type'].apply(translator)
+
+    return df
+
+
 def get_hydro_energy(conn, regions):
     sql = """
         SELECT state_short, capacity_2013, energy_2013
