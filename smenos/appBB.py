@@ -173,7 +173,7 @@ print("('bus', 'BE', 'biomass')")
                 ########### decentral #####################
 hlsd.create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                                time_index, eta_th, eta_in, eta_out, cap_loss,
-                               opex_fix, eta_th_chp, eta_el_chp)
+                               opex_fix, opex_var, eta_th_chp, eta_el_chp)
 
 # renewable parameters
 site = hls.get_res_parameters()
