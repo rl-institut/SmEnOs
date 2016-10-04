@@ -225,7 +225,9 @@ for bus in buses:
         Regions.entities.remove(bus)
 
 Import_Regions = ('MV', 'ST', 'SN', 'KJ')
-Export_Regions = ('MV', 'ST', 'SN', 'KJ', 'BE')
+# Export_Regions = ('MV', 'ST', 'SN', 'KJ', 'BE')
+Export_Regions = ('MV', 'ST', 'SN', 'KJ')  # Berlin nicht in
+                                           # Export-Bilanz für Constraint
 
 for region_name in Import_Regions:
     Regions.regions.append(es.Region(name=region_name))
