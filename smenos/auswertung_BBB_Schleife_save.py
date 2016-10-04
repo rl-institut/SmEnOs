@@ -191,6 +191,12 @@ def timeseries_of_component_dh(energysystem, from_uid, to_uid):
 
 
 def print_validation_outputs(energysystem, reg, results_dc):
+    conn_oedb = db.connection(section='open_edb')
+
+    (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
+     eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
+     c_rate_in, c_rate_out, eta_in, eta_out,
+     cap_loss, lifetime, wacc) = hlsb.get_parameters(conn_oedb)
 
     # capacities of pp
     pp = [
@@ -209,20 +215,93 @@ def print_validation_outputs(energysystem, reg, results_dc):
         "('transformer', '"+reg+"', 'natural_gas_cc', 'chp')",
         "('transformer', '"+reg+"', 'natural_gas_cc', 'SEchp')",
 
-        "('transformer', '"+reg+"', 'HH', 'bhkw_gas')",
-        "('transformer', '"+reg+"', 'GHD', 'bhkw_gas')",
-
         "('transformer', '"+reg+"', 'biomass')",
         "('transformer', '"+reg+"', 'biomass', 'chp')",
         "('transformer', '"+reg+"', 'biomass', 'SEchp')",
 
+        "('transformer', '"+reg+"', 'HH', 'bhkw_gas')",
+        "('transformer', '"+reg+"', 'GHD', 'bhkw_gas')",
+
         "('transformer', '"+reg+"', 'HH', 'bhkw_bio')",
         "('transformer', '"+reg+"', 'GHD', 'bhkw_bio')",
+
+        "('transformer', '"+reg+"', 'bhkw_bio')",
+        "('transformer', '"+reg+"', 'bhkw_bio', 'dh')",
+
+        "('transformer', '"+reg+"', 'dh_peak_heating')",
 
         "('transformer', '"+reg+"', 'lignite_jw', 'SEchp')",
         "('transformer', '"+reg+"', 'lignite_sp', 'SEchp')",
 
         "('transformer', '"+reg+"', 'powertoheat')"]
+
+    eta_el = [
+            1,
+            1,
+            eta_elec['oil'],
+            eta_el_chp['oil'],
+            eta_chp_flex_el['oil'],
+
+            eta_elec['natural_gas'],
+            eta_el_chp['natural_gas'],
+            eta_chp_flex_el['natural_gas'],
+
+            eta_elec['natural_gas_cc'],
+            eta_el_chp['natural_gas_cc'],
+            eta_chp_flex_el['natural_gas_cc'],
+
+            eta_elec['biomass'],
+            eta_el_chp['biomass'],
+            eta_chp_flex_el['biomass'],
+
+            eta_el_chp['bhkw_gas'],
+            eta_el_chp['bhkw_gas'],
+
+            eta_el_chp['bhkw_bio'],
+            eta_el_chp['bhkw_bio'],
+
+            eta_el_chp['bhkw_bio'],
+            eta_el_chp['bhkw_bio'],
+
+            0,  # dh_peakheating
+            eta_chp_flex_el['jaenschwalde'],       
+            eta_chp_flex_el['schwarzepumpe'],
+            0  # powertoheat
+            ]
+
+    co2 = [
+            0,
+            0,
+            co2_emissions['oil'],
+            co2_emissions['oil'],
+            co2_emissions['oil'],
+
+            co2_emissions['natural_gas'],
+            co2_emissions['natural_gas'],
+            co2_emissions['natural_gas'],
+
+            co2_emissions['natural_gas_cc'],
+            co2_emissions['natural_gas_cc'],
+            co2_emissions['natural_gas_cc'],
+
+            co2_emissions['biomass'],
+            co2_emissions['biomass'],
+            co2_emissions['biomass'],
+
+            co2_emissions['bhkw_gas'],
+            co2_emissions['bhkw_gas'],
+
+            co2_emissions['bhkw_bio'],
+            co2_emissions['bhkw_bio'],
+
+            co2_emissions['bhkw_bio'],
+            co2_emissions['bhkw_bio'],
+
+            0,  # dh_peakheating
+            co2_emissions['lignite'],       
+            co2_emissions['lignite'],
+            0  # powertoheat
+            ]
 
     ebus = "('bus', '"+reg+"', 'elec')"
     dhbus = "('bus', '"+reg+"', 'dh')"
@@ -230,6 +309,10 @@ def print_validation_outputs(energysystem, reg, results_dc):
     short_dh = "('bus', '"+reg+"', 'dh')_shortage"
     excess = "('bus', '"+reg+"', 'elec')_excess"
     summe_plant_dict = {}
+    frame = pd.DataFrame(index=pp)
+    el_energy = list()
+    dh_energy = list()
+    
     for p in pp:
         print(p)
         try:  # el_transformer
@@ -239,8 +322,12 @@ def print_validation_outputs(energysystem, reg, results_dc):
             print(('max:' + str(maximum)))
             results_dc['sum '+ reg + str(p)] = summe_plant_dict[p]
             results_dc['max '+ reg + str(p)] = maximum
+            el_energy.append(summe_plant_dict[p])
         except:
             print('nicht vorhanden')
+            el_energy.append(0)
+            results_dc['sum '+ reg + str(p)] = 0
+            results_dc['max '+ reg + str(p)] = 0
         try:
             print(('vls:' + str(summe_plant_dict[p] / maximum)))
             results_dc['vlh ' + reg + str(p)] = summe_plant_dict[p] / maximum
@@ -254,8 +341,12 @@ def print_validation_outputs(energysystem, reg, results_dc):
             print(('max:' + str(maximum)))
             results_dc['sum '+ reg + str(p)+'_dh'] = summe_plant_dict['dh'+p]
             results_dc['max '+ reg + str(p)+'_dh'] = maximum
+            dh_energy.append(summe_plant_dict['dh'+p])
         except:
             print('nicht vorhanden')
+            dh_energy.append(0)
+            results_dc['sum '+ reg + str(p)+'_dh'] = 0
+            results_dc['max '+ reg + str(p)+'_dh'] = 0
         try:
             print(('vls:' + str(summe_plant_dict[p] / maximum)))
             results_dc['vlh ' + reg + str(p)+'_dh'] = summe_plant_dict[p] / maximum
@@ -271,6 +362,13 @@ def print_validation_outputs(energysystem, reg, results_dc):
     print(('el_shortage_max:' + str(maximum)))
     results_dc['el_shortage_max ' + reg] = maximum
     print('\n')
+    
+    frame['dh_energy'] = dh_energy    
+    frame['energy_sum'] = el_energy
+    frame['eta_el'] = eta_el
+#    frame['PE'] = float(el_energy) / float(eta_el)
+    frame['co2'] = co2
+#    frame['emissions'] = float(el_energy) * float(co2) / float(eta_el)
 
 #    summe_plant, maximum = sum_max_output_of_component(
 #        energysystem, short_dh, dh)
@@ -291,7 +389,7 @@ def print_validation_outputs(energysystem, reg, results_dc):
     sum_fee = (summe_plant_dict["('FixedSrc', '"+reg+"', 'wind_pwr')"] +
                summe_plant_dict["('FixedSrc', '"+reg+"', 'pv_pwr')"])
     print(('share excess:' + str((summe_plant / sum_fee) * 100)))
-    return (results_dc)
+    return (results_dc, frame)
 
 
 def print_exports(energysystem, results_dc):
@@ -538,7 +636,7 @@ def get_supply_demand_timeseries(energysystem):
 
 ################# get results ############################
 
-path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario1_1_mit_allen_constraints/'
+path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_1_2_ohne_CO2_constraint/'
 # load dumped energy system
 year = 2050
 energysystem = create_es(
@@ -562,29 +660,32 @@ date_from['winter'] = "2010-12-17 00:00:00"
 date_to['winter'] = "2010-12-24 00:00:00"
 
 results_dc = {}
-results_dc['co2_all_BB'] = co2(energysystem)
-
-
-supply_demand_time = get_supply_demand_timeseries(energysystem)
-supply_demand_time.to_csv(path+'supply_minus_demand.csv')
-
-print_exports(energysystem, results_dc)
-
-print_im_exports(energysystem, results_dc)
-
+#results_dc['co2_all_BB'] = co2(energysystem)
+#
+#
+#supply_demand_time = get_supply_demand_timeseries(energysystem)
+#supply_demand_time.to_csv(path+'supply_minus_demand.csv')
+#
+#print_exports(energysystem, results_dc)
+#
+#print_im_exports(energysystem, results_dc)
+#frame_base = pd.DataFrame()
 for reg in regions_BBB:
     week = 'winter'
-    print_validation_outputs(energysystem, reg, results_dc)
-    get_share_ee(energysystem, reg, results_dc)
+#    results_dc, frame = print_validation_outputs(energysystem, reg, results_dc)
+#    frame_base = frame_base.append(frame)       
+#    get_share_ee(energysystem, reg, results_dc)
     
-#    for bus in buses:      
-#        fig = stack_plot(energysystem, reg, bus, date_from[week], date_to[week])
-#        fig.savefig(path+reg+'_'+bus+'_'+week+'.png')
+    for bus in buses:      
+        fig = stack_plot(energysystem, reg, bus, date_from[week], date_to[week])
+        fig.savefig(path+reg+'_'+bus+'_'+week+'.png')
 
-x = list(results_dc.keys())
-y = list(results_dc.values())
-f = open(path + '_results.csv', 'w', newline='')
-w = csv.writer(f, delimiter=';')
-w.writerow(x)
-w.writerow(y)
-f.close
+#frame_base.to_csv(path+'co2_el_energy.csv')
+#
+#x = list(results_dc.keys())
+#y = list(results_dc.values())
+#f = open(path + '_results.csv', 'w', newline='')
+#w = csv.writer(f, delimiter=';')
+#w.writerow(x)
+#w.writerow(y)
+#f.close
