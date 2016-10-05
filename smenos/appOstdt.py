@@ -31,7 +31,7 @@ from oemof.core.network.entities.components import sources as source
 from oemof.core.network.entities.components import transformers as transformer
 
 import helper_SmEnOs as hls
-import feedin_offs
+#import feedin_offs
 import helper_heat_pump as hhp
 
 # Basic inputs
@@ -46,7 +46,7 @@ Offshore_Scenario = 2016  # which parks are already running in this year
 
 cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
-max_biomass = 2500000 
+max_biomass = 2500000
 
 
 # Create a simulation object
@@ -94,7 +94,7 @@ for region in SmEnOsReg.regions:
         regions=[region], excess=True, shortage=True, shortage_costs=1000000.0)
     # create biomass bus
     Bus(uid="('bus', '"+region.name+"', 'biomass')", type='biomass', price=0,
-        regions=[region], excess=False, balanced=False, 
+        regions=[region], excess=False, balanced=False,
     sum_out_limit=max_biomass)
 
     # create districtheat bus
@@ -408,22 +408,20 @@ site_os = hls.get_offshore_parameters(conn)
 # add biomass in typeofgen because its needed to generate powerplants from db
 typeofgen_global.append('biomass')
 
-# create fixedSource object for Offshore WindPower
-feedin_df, cap = feedin_offs.Feedin().aggregate_cap_val(
-    conn, year=year, schema='oemof_test', table='baltic_wind_farms',
-    start_year=Offshore_Scenario, bustype='elec', **site_os)
+## create fixedSource object for Offshore WindPower
+#feedin_df, cap = feedin_offs.Feedin().aggregate_cap_val(
+    #conn, year=year, schema='oemof_test', table='baltic_wind_farms',
+    #start_year=Offshore_Scenario, bustype='elec', **site_os)
 
+status_Quo_EE = pickle.load(open("statusquoee.p", "rb"))
+feedin_df = pd.read_csv(
+    'res_timeseries_smenosMV_.csv', delimiter=',', index_col=0)
 source.FixedSource(
     uid=('FixedSrc', 'MV', 'Offshore'),
-    outputs=[obj for obj in SmEnOsReg.entities if obj.uid == 
+    outputs=[obj for obj in SmEnOsReg.entities if obj.uid ==
         "('bus', 'MV', 'elec')"],
-    val=feedin_df,
-    out_max=[float(cap)])
-
-for entity in SmEnOsReg.entities:
-    if entity.uid[0] == 'FixedSrc':
-        print(entity.outputs)
-
+    val=feedin_df['wind_offshore_pwr'],
+    out_max=[status_Quo_EE['MV']['wind_offshore_pwr']])
 
 #region_fixed_source = SmEnOsReg.regions[0]
 #feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
@@ -436,7 +434,7 @@ for entity in SmEnOsReg.entities:
 #        val=feedin_df[stype],
 #        out_max=[cap[stype]])
 # Create entity objects for each region
-status_Quo_EE = pickle.load(open("statusquoee.p", "rb"))
+
 for region in SmEnOsReg.regions:
     logging.info('Processing region: {0}'.format(region.name))
 
@@ -446,12 +444,13 @@ for region in SmEnOsReg.regions:
 #        conn, region=region, year=year, bustype='elec', **site)
 #    feedin_df.to_csv('res_timeseries_smenos'+region.name+'_.csv')
     feedin_df = pd.read_csv(
-        'res_timeseries_smenos'+region.name+'_.csv', delimiter=',', index_col=0)
+        'res_timeseries_smenos' + region.name +
+        '_.csv', delimiter=',', index_col=0)
     for stype in feedin_df.keys():
         source.FixedSource(
             uid=('FixedSrc', region.name, stype),
-            outputs=[obj for obj in region.entities if obj.uid == 
-                "('bus', '"+region.name+"', 'elec')"],
+            outputs=[obj for obj in region.entities if obj.uid ==
+                "('bus', '" + region.name + "', 'elec')"],
             val=feedin_df[stype],
             out_max=[status_Quo_EE[region.name][stype]])
 
