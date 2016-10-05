@@ -442,7 +442,7 @@ def add_constraint_export_minimum(om, Export_Regions):
     om.export_minimum_constraint = po.Constraint(expr=(
         sum(om.w[i, o, t] for i, o in transports_ex for t in om.timesteps) -
         sum(om.w[i, o, t] for i, o in transports_im for t in om.timesteps)
-        >= 42000000))
+        >= 31000000))  # 42000000))
     return
 
 
