@@ -636,7 +636,7 @@ def get_supply_demand_timeseries(energysystem):
 
 ################# get results ############################
 
-path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_1_2_ohne_CO2_constraint/'
+path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_1_3_mit_allen_constraints/'
 # load dumped energy system
 year = 2050
 energysystem = create_es(
@@ -660,14 +660,14 @@ date_from['winter'] = "2010-12-17 00:00:00"
 date_to['winter'] = "2010-12-24 00:00:00"
 
 results_dc = {}
-#results_dc['co2_all_BB'] = co2(energysystem)
-#
-#
+results_dc['co2_all_BB'] = co2(energysystem)
+
+
 #supply_demand_time = get_supply_demand_timeseries(energysystem)
 #supply_demand_time.to_csv(path+'supply_minus_demand.csv')
 #
 #print_exports(energysystem, results_dc)
-#
+
 #print_im_exports(energysystem, results_dc)
 #frame_base = pd.DataFrame()
 for reg in regions_BBB:
@@ -681,7 +681,7 @@ for reg in regions_BBB:
         fig.savefig(path+reg+'_'+bus+'_'+week+'.png')
 
 #frame_base.to_csv(path+'co2_el_energy.csv')
-#
+##
 #x = list(results_dc.keys())
 #y = list(results_dc.values())
 #f = open(path + '_results.csv', 'w', newline='')
