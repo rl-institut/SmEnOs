@@ -38,7 +38,7 @@ import helper_heat_pump as hhp
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
+time_index = pd.date_range('1/1/{0}'.format(year), periods=2, freq='H')
 overwrite = True
 conn = db.connection()
 Offshore_Scenario = 2016  # which parks are already running in this year
@@ -46,8 +46,13 @@ Offshore_Scenario = 2016  # which parks are already running in this year
 
 cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
-max_biomass = 2500000
-
+max_biomass = {}
+max_biomass['BE'] = 10000000
+max_biomass['BB'] = 16000000
+max_biomass['MV'] = 10000000
+max_biomass['SN'] = 12500000
+max_biomass['ST'] = 12500000
+max_biomass['TH'] = 10000000
 
 # Create a simulation object
 simulation = es.Simulation(
@@ -95,7 +100,7 @@ for region in SmEnOsReg.regions:
     # create biomass bus
     Bus(uid="('bus', '"+region.name+"', 'biomass')", type='biomass', price=0,
         regions=[region], excess=False, balanced=False,
-    sum_out_limit=max_biomass)
+    sum_out_limit=max_biomass[region.name])
 
     # create districtheat bus
     Bus(uid="('bus', '"+region.name+"', 'dh')", type='dh', price=0,
