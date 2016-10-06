@@ -457,7 +457,7 @@ for region in SmEnOsReg.regions:
             outputs=[obj for obj in region.entities if obj.uid ==
                 "('bus', '" + region.name + "', 'elec')"],
             val=feedin_df[stype],
-            out_max=[status_Quo_EE[region.name][stype]])
+            out_max=[status_Quo_EE[region.name][stype] / 1000])
 
     # Get power plants from database and write them into a DataFrame
     pps_df = hls.get_opsd_pps(conn, region.geom)
