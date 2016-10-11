@@ -396,6 +396,17 @@ for region in SmEnOsReg.regions:
             if obj.uid == "('bus', '"+region.name+"', 'dh')"],
         region=region)
     demand.val = dh_demand
+    
+    transformer.Simple(
+        uid=('transformer', region.name, 'dh_peak_heating'),
+        inputs=[obj for obj in SmEnOsReg.entities
+            if obj.uid == "('bus', 'global', 'natural_gas')"],
+        outputs=[obj for obj in SmEnOsReg.entities
+            if obj.uid == "('bus', '"+region.name+"', 'dh')"],
+        out_max=[max(demand.val)],
+        eta=[eta_th['natural_gas']],
+        opex_var=opex_var['natural_gas'],
+        regions=[region])
 
 # Get run-of-river and pumped storage capacities
 # ror_cap is Series with state abbr, capacity_mw and energy_mwh
