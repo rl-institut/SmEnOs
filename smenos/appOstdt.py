@@ -38,7 +38,7 @@ import helper_heat_pump as hhp
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=2, freq='H')
+time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
 overwrite = True
 conn = db.connection()
 Offshore_Scenario = 2016  # which parks are already running in this year
@@ -452,12 +452,13 @@ for region in SmEnOsReg.regions:
         'res_timeseries_smenos' + region.name +
         '_.csv', delimiter=',', index_col=0)
     for stype in feedin_df.keys():
-        source.FixedSource(
-            uid=('FixedSrc', region.name, stype),
-            outputs=[obj for obj in region.entities if obj.uid ==
-                "('bus', '" + region.name + "', 'elec')"],
-            val=feedin_df[stype],
-            out_max=[status_Quo_EE[region.name][stype] / 1000])
+        if stype != 'wind_offshore_pwr':
+            source.FixedSource(
+                uid=('FixedSrc', region.name, stype),
+                outputs=[obj for obj in region.entities if obj.uid ==
+                    "('bus', '" + region.name + "', 'elec')"],
+                val=feedin_df[stype],
+                out_max=[status_Quo_EE[region.name][stype] / 1000])
 
     # Get power plants from database and write them into a DataFrame
     pps_df = hls.get_opsd_pps(conn, region.geom)
@@ -530,7 +531,7 @@ SmEnOsReg.connect(ebusTH, ebusSN, in_max=6720, out_max=6720,
 
 for entity in SmEnOsReg.entities:
     entity.uid = str(entity.uid)
-    print(entity.uid)
+#    print(entity.uid)
 
 # Optimize the energy system
 om = OptimizationModel(energysystem=SmEnOsReg)
