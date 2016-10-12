@@ -494,12 +494,9 @@ def create_opsd_summed_objects(esystem, region, pp, **kwargs):
                 filename=kwargs.get('filename_hydro'),
                 energy=energy,
                 capacity=capacity[typ]),
-            out_max=[max(scale_profile_to_sum_of_energy(
-                filename=kwargs.get('filename_hydro'),
-                energy=energy,
-                capacity=capacity[typ]))],  # inst. Leistung!
+            out_max=[1],  # inst. Leistung!
             regions=[region])
-            
+
 
 def get_out_max_chp(capacity_chp_el, chp_faktor_flex,
                     eta_th_chp, eta_el_chp):

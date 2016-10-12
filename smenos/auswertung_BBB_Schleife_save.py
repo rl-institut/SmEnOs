@@ -628,6 +628,9 @@ def get_supply_demand_timeseries(energysystem):
                     pass
         time_in_sum = all_times_in.sum(axis=1)
         time_out_sum = all_times_out.sum(axis=1)    
+
+        all_times_in.to_csv(path+reg+'all_times_in.csv')
+        all_times_out.to_csv(path+reg+'all_times_out.csv')
     
         supply_demand_time[reg] = time_in_sum - time_out_sum
 
