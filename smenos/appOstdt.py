@@ -13,6 +13,7 @@
 
 
 import logging
+import os
 import pandas as pd
 import warnings
 import numpy as np
@@ -118,8 +119,10 @@ for region in SmEnOsReg.regions:
     el_demand = demands_df.query(
         'nuts_id==@nutID and energy=="electricity"').sum(axis=0)['demand']
     # create el. profile and write to sink object
+    filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                            '50Hertz2010_y.csv'))
     hls.call_el_demandlib(demand, method='scale_profile_csv', year=year,
-                          path='', filename='50Hertz2010_y.csv',
+                          path='', filename=filename,
                           annual_elec_demand=el_demand)
 
 # Add heat sinks, buses and transformer for each region, sector and ressource
@@ -147,7 +150,8 @@ for region in SmEnOsReg.regions:
 #        temp += weather.data['temp_air'].as_matrix()
 #    temp = pd.Series(temp / len(multiWeather) - 273.15)
 #    region.temp = temp
-    temp = pd.read_pickle('temp')
+    filename = os.path.abspath(os.path.join(os.path.dirname(__file__), 'temp'))
+    temp = pd.read_pickle(filename)
     region.temp = temp
     # create empty dataframe for district heating demand
     dh_demand = pd.Series(0, index=time_index)
@@ -428,10 +432,12 @@ typeofgen_global.append('biomass')
 #feedin_df, cap = feedin_offs.Feedin().aggregate_cap_val(
     #conn, year=year, schema='oemof_test', table='baltic_wind_farms',
     #start_year=Offshore_Scenario, bustype='elec', **site_os)
-
-status_Quo_EE = pickle.load(open("statusquoee.p", "rb"))
-feedin_df = pd.read_csv(
-    'res_timeseries_smenosMV_.csv', delimiter=',', index_col=0)
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        'statusquoee.p'))
+status_Quo_EE = pickle.load(open(filename, "rb"))
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        'res_timeseries_smenosMV_.csv'))
+feedin_df = pd.read_csv(filename, delimiter=',', index_col=0)
 source.FixedSource(
     uid=('FixedSrc', 'MV', 'Offshore'),
     outputs=[obj for obj in SmEnOsReg.entities if obj.uid ==
@@ -459,9 +465,10 @@ for region in SmEnOsReg.regions:
 #    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
 #        conn, region=region, year=year, bustype='elec', **site)
 #    feedin_df.to_csv('res_timeseries_smenos'+region.name+'_.csv')
-    feedin_df = pd.read_csv(
-        'res_timeseries_smenos' + region.name +
-        '_.csv', delimiter=',', index_col=0)
+    filename = os.path.abspath(os.path.join(
+                os.path.dirname(__file__),
+                  'res_timeseries_smenos' + region.name + '_.csv'))
+    feedin_df = pd.read_csv(filename, delimiter=',', index_col=0)
     for stype in feedin_df.keys():
         if stype != 'wind_offshore_pwr':
             source.FixedSource(
@@ -473,6 +480,8 @@ for region in SmEnOsReg.regions:
 
     # Get power plants from database and write them into a DataFrame
     pps_df = hls.get_opsd_pps(conn, region.geom)
+    filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                            'waterfeedin2010.csv'))
     hls.create_opsd_summed_objects(
         SmEnOsReg, region, pps_df,
         cap_initial=cap_initial,
@@ -480,7 +489,7 @@ for region in SmEnOsReg.regions:
         typeofgen=typeofgen_global,
         ror_cap=ror_cap,
         pumped_storage=pumped_storage,
-        filename_hydro='waterfeedin2010.csv')
+        filename_hydro=filename)
 
 # Remove orphan buses
 buses = [obj for obj in SmEnOsReg.entities if isinstance(obj, Bus)]

@@ -3,6 +3,7 @@
 @author: Elisa
 """
 import logging
+import os
 import pandas as pd
 import numpy as np
 from datetime import time as settime
@@ -18,9 +19,9 @@ from oemof import db
 
 def get_parameters():
     'returns emission and cost parameters'
-
-    read_parameter = pd.read_csv(
-        'simulation_parameter_App_SmEnOs_csv.csv', delimiter=';', index_col=0)
+    filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                         'simulation_parameter_App_SmEnOs_csv.csv'))
+    read_parameter = pd.read_csv(filename, delimiter=';', index_col=0)
     parameters = {}
 
     for col in read_parameter.columns:
