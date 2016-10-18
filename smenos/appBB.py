@@ -4,6 +4,7 @@
 import pandas as pd
 import warnings
 import logging
+import os
 
 from oemof import db
 from oemof.tools import logger
@@ -90,7 +91,10 @@ for region in Regions.regions:
     else:
         region_bb.append(region)  # list
 
-emob_DE = pd.read_csv('data_mob_bev.csv', delimiter=',')
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        'data_mob_bev.csv'))
+
+emob_DE = pd.read_csv(filename, delimiter=',')
 emob_BB = emob_DE['sink_fixed'] * energy_emob_BB / emob_DE['sink_fixed'].sum()
 
 # Add electricity sink and bus for each region
@@ -196,8 +200,10 @@ for region in Regions.regions:
 
     #TODO Problem mit Erdwärme??!!
                 ########### renewables #####################
-    feedin_df = pd.read_csv(
-        'res_timeseries_'+region.name+'.csv', delimiter=',', index_col=0)
+    filename = os.path.abspath(os.path.join(
+                os.path.dirname(__file__),
+                  'res_timeseries_' + region.name + '.csv'))
+    feedin_df = pd.read_csv(filename, delimiter=',', index_col=0)
 #    feedin_df, cap = feedin_pg.Feedin().aggregate_cap_val(
 #        conn, region=region, year=year, bustype='elec', **site)
     ee_capacities = {}
@@ -225,9 +231,7 @@ for bus in buses:
         Regions.entities.remove(bus)
 
 Import_Regions = ('MV', 'ST', 'SN', 'KJ')
-# Export_Regions = ('MV', 'ST', 'SN', 'KJ', 'BE')
-Export_Regions = ('MV', 'ST', 'SN', 'KJ')  # Berlin nicht in
-                                           # Export-Bilanz für Constraint
+Export_Regions = ('MV', 'ST', 'SN', 'KJ', 'BE')
 
 for region_name in Import_Regions:
     Regions.regions.append(es.Region(name=region_name))
