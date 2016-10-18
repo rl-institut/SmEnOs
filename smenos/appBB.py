@@ -24,7 +24,7 @@ import helper_dec_BBB as hlsd
 import numpy as np
 
 # choose scenario
-scenario = 'ES2030'
+scenario = 'gruene2030'
 
 # Basic inputs
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
@@ -311,6 +311,7 @@ for entity in Regions.entities:
 # Optimize the energy system
 om = OptimizationModel(energysystem=Regions)
 hlsb.add_constraint_export_minimum(om, Export_Regions)
+hlsb.add_constraint_import_berlin(om)
 hlsb.add_constraint_co2_emissions(om, co2_emissions)
 hlsb.add_constraint_entities_BE(om)
 om.write_lp_file()

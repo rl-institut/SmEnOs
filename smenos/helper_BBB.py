@@ -442,7 +442,25 @@ def add_constraint_export_minimum(om, Export_Regions):
     om.export_minimum_constraint = po.Constraint(expr=(
         sum(om.w[i, o, t] for i, o in transports_ex for t in om.timesteps) -
         sum(om.w[i, o, t] for i, o in transports_im for t in om.timesteps)
-        >= 31000000))  # 42000000))
+        >= 19150000))  # 15685000 ist inkl. 5367000 nach Berlin
+    return
+
+
+def add_constraint_import_berlin(om):
+    # returns all transport entities
+    tmp_entities = [obj for obj in om.energysystem.entities
+        if 'transport' in obj.uid]
+    # returns all transport entities that import from BB to Berlin
+    imports = [obj for obj in tmp_entities
+        if 'BE' in obj.outputs[0].uid]
+    # write list to hand over to constraint
+    transports_im = []
+    for imp in imports:
+        transports_im += [(imp.uid, imp.outputs[0].uid)]
+    # add new constraint
+    om.export_minimum_constraint = po.Constraint(expr=(
+        sum(om.w[i, o, t] for i, o in transports_im for t in om.timesteps)
+        >= 5367000))  # Mindestimport nach nach Berlin (50% des Bedarfs)
     return
 
 
@@ -499,7 +517,7 @@ def add_constraint_co2_emissions(om, co2_emissions):
     om.co2_emissions_bb = po.Constraint(expr=(
         sum(om.w[i, o, t] * co2_emissions[b.type]
         for i, o, b in co2_source_bb for t in om.timesteps)
-        <= 20500000))
+        <= 13790000))	# 13790000 runtergerechnet
 
     # add new constraint BE
     om.co2_emissions_be = po.Constraint(expr=(
