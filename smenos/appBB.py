@@ -310,9 +310,12 @@ for entity in Regions.entities:
 
 # Optimize the energy system
 om = OptimizationModel(energysystem=Regions)
-hlsb.add_constraint_export_minimum(om, Export_Regions)
-hlsb.add_constraint_import_berlin(om)
-hlsb.add_constraint_co2_emissions(om, co2_emissions)
+
+constraints = hlsb.get_constraint_values(conn_oedb, scenario)
+
+hlsb.add_constraint_export_minimum(om, Export_Regions, constraints)
+hlsb.add_constraint_import_berlin(om, constraints)
+hlsb.add_constraint_co2_emissions(om, co2_emissions, constraints)
 hlsb.add_constraint_entities_BE(om)
 om.write_lp_file()
 om.solve()

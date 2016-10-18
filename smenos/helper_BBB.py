@@ -420,7 +420,20 @@ def get_out_max_chp_flex(capacity, sigma_chp):
     return out
 
 
-def add_constraint_export_minimum(om, Export_Regions):
+def get_constraint_values(conn_oedb, scenario_name):
+    'values for constraints in scenario'
+
+    sql = """
+        SELECT constr, val
+        FROM model_draft.abbb_constraints AS d
+        WHERE scenario = '""" + str(scenario_name) + """'"""
+    read_parameter = pd.DataFrame(
+        conn_oedb.execute(sql).fetchall(),
+        columns=['constr', 'val'])
+
+    return(read_parameter)
+
+def add_constraint_export_minimum(om, Export_Regions, constraints):
     # returns all transport entities
     tmp_entities = [obj for obj in om.energysystem.entities
         if 'transport' in obj.uid]
@@ -442,11 +455,11 @@ def add_constraint_export_minimum(om, Export_Regions):
     om.export_minimum_constraint = po.Constraint(expr=(
         sum(om.w[i, o, t] for i, o in transports_ex for t in om.timesteps) -
         sum(om.w[i, o, t] for i, o in transports_im for t in om.timesteps)
-        >= 19150000))  # 15685000 ist inkl. 5367000 nach Berlin
+        >= float(constraints.query('constr=="export_min"')['val'])))
     return
 
 
-def add_constraint_import_berlin(om):
+def add_constraint_import_berlin(om, constraints):
     # returns all transport entities
     tmp_entities = [obj for obj in om.energysystem.entities
         if 'transport' in obj.uid]
@@ -460,11 +473,11 @@ def add_constraint_import_berlin(om):
     # add new constraint
     om.export_minimum_constraint = po.Constraint(expr=(
         sum(om.w[i, o, t] for i, o in transports_im for t in om.timesteps)
-        >= 5367000))  # Mindestimport nach nach Berlin (50% des Bedarfs)
+        >= float(constraints.query('constr=="import_min_be"')['val'])))
     return
 
 
-def add_constraint_co2_emissions(om, co2_emissions):
+def add_constraint_co2_emissions(om, co2_emissions, constraints):
 
     # fossil ressources
     global_ressources = ['natural_gas', 'natural_gas_cc', 'lignite',
@@ -517,13 +530,13 @@ def add_constraint_co2_emissions(om, co2_emissions):
     om.co2_emissions_bb = po.Constraint(expr=(
         sum(om.w[i, o, t] * co2_emissions[b.type]
         for i, o, b in co2_source_bb for t in om.timesteps)
-        <= 13790000))	# 13790000 runtergerechnet
+        <= float(constraints.query('constr=="co2_max_bb"')['val'])))
 
     # add new constraint BE
     om.co2_emissions_be = po.Constraint(expr=(
         sum(om.w[i, o, t] * co2_emissions[b.type]
         for i, o, b in co2_source_be for t in om.timesteps)
-        <= 12900000))
+        <= float(constraints.query('constr=="co2_max_be"')['val'])))
     return
 
 
