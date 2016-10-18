@@ -452,6 +452,7 @@ def print_exports(energysystem, results_dc):
     imports.to_csv(path+'imports.csv')
     time_no_export.to_csv(path+'no_export.csv')
     results_dc['export gesamt: '] = export_all
+    
 
     return(results_dc, time_no_export)
 
@@ -480,7 +481,9 @@ def print_im_exports(energysystem, results_dc):
              "transport_('bus', 'PO', 'elec')('bus', 'OS', 'elec')",
              "transport_('bus', 'OS', 'elec')('bus', 'PO', 'elec')"]
 
-
+    time_index = pd.date_range('1/1/{0}'.format(2010), periods=8760, freq='H')
+    BBB_Kuppelstellen = pd.DataFrame(index=time_index)
+        
     export_all = 0
     for i in export_from:
         print(i)
@@ -494,6 +497,8 @@ def print_im_exports(energysystem, results_dc):
                 print(summe_ex)
                 results_dc['export from ' + i + ' to ' + k] = summe_ex
                 results_dc['export from ' + i + ' to ' + k + ' maximum'] = maximum
+                BBB_Kuppelstellen['export from ' + i + ' to ' + k] = \
+                    timeseries_of_component(energysystem, i, k)
             except:
                 pass
 
@@ -503,6 +508,7 @@ def print_im_exports(energysystem, results_dc):
     print('export_in_BBB_gesamt:')
     print(export_all)
     results_dc['export in BBB gesamt: '] = export_all
+    BBB_Kuppelstellen.to_csv(path+'kuppelstellen.csv')
 
     return(results_dc)
 
@@ -629,17 +635,19 @@ def get_supply_demand_timeseries(energysystem):
         time_in_sum = all_times_in.sum(axis=1)
         time_out_sum = all_times_out.sum(axis=1)    
 
-        all_times_in.to_csv(path+reg+'all_times_in.csv')
-        all_times_out.to_csv(path+reg+'all_times_out.csv')
+        all_times_in.to_csv(path+reg+'_all_times_in.csv')
+        all_times_out.to_csv(path+reg+'_all_times_out.csv')
     
         supply_demand_time[reg] = time_in_sum - time_out_sum
+        supply_demand_time[reg+'in'] = time_in_sum
+        supply_demand_time[reg+'out'] = time_out_sum
 
     return(supply_demand_time)
     
 
 ################# get results ############################
 
-path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_1_4_mit_allen_constraints/'
+path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_1_2_mit_allen_constraints/'
 # load dumped energy system
 year = 2050
 energysystem = create_es(
@@ -669,7 +677,7 @@ results_dc['co2_all_BB'] = co2(energysystem)
 supply_demand_time = get_supply_demand_timeseries(energysystem)
 supply_demand_time.to_csv(path+'supply_minus_demand.csv')
 
-print_exports(energysystem, results_dc)
+#print_exports(energysystem, results_dc)
 
 print_im_exports(energysystem, results_dc)
 frame_base = pd.DataFrame()
@@ -683,12 +691,12 @@ for reg in regions_BBB:
 #        fig = stack_plot(energysystem, reg, bus, date_from[week], date_to[week])
 #        fig.savefig(path+reg+'_'+bus+'_'+week+'.png')
 
-frame_base.to_csv(path+'co2_el_energy.csv')
+#frame_base.to_csv(path+'co2_el_energy.csv')
 #
-x = list(results_dc.keys())
-y = list(results_dc.values())
-f = open(path + '_results.csv', 'w', newline='')
-w = csv.writer(f, delimiter=';')
-w.writerow(x)
-w.writerow(y)
-f.close
+#x = list(results_dc.keys())
+#y = list(results_dc.values())
+#f = open(path + '_results.csv', 'w', newline='')
+#w = csv.writer(f, delimiter=';')
+#w.writerow(x)
+#w.writerow(y)
+#f.close
