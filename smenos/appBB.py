@@ -24,7 +24,7 @@ import helper_dec_BBB as hlsd
 import numpy as np
 
 # choose scenario
-scenario = 'gruene2030'
+scenario = 'gruene2030_bk0'
 
 # Basic inputs
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
