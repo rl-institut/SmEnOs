@@ -275,7 +275,9 @@ for con in transmission['from']:  # Zeilen in transmission-Tabelle
             # if transport to MV or ST, limit export in times of wind
             # feedin > 0.9
             if reg2 in ['MV', 'ST']:
-                wind_feedin = pd.read_csv('res_timeseries_' + reg1 + '.csv')
+                filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                            'res_timeseries_' + reg1 + '.csv'))
+                wind_feedin = pd.read_csv(filename)
                 wind_feedin['transport_condition'] = np.where(
                     wind_feedin['wind_pwr'] >= 0.9, 0, 1)
                 transport.Simple(  # export-connection MV/ST
