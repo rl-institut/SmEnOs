@@ -473,7 +473,7 @@ def add_constraint_import_berlin(om, constraints):
     # add new constraint
     om.export_minimum_constraint = po.Constraint(expr=(
         sum(om.w[i, o, t] for i, o in transports_im for t in om.timesteps)
-        >= float(constraints.query('constr=="import_min_be"')['val'])))
+        <= float(constraints.query('constr=="import_max_be"')['val'])))
     return
 
 

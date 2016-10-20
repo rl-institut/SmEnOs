@@ -647,7 +647,7 @@ def get_supply_demand_timeseries(energysystem):
 
 ################# get results ############################
 
-path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_2_1_mit_allen_constraints/'
+path = '/home/hendrik/UserShares/Elisa.Gaudchau/Oemof/dumps/Szenario_2_2_ohne_Braunkohle/'
 # load dumped energy system
 year = 2050
 energysystem = create_es(
