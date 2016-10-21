@@ -13,9 +13,6 @@ import pyomo.environ as po
 
 from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import sources as source
-from oemof.demandlib import demand as dm
-from oemof.demandlib import energy_buildings as eb
-from oemof.demandlib import bdew_heatprofile as bdew_heat
 from oemof.tools import helpers
 from oemof import db
 import helper_SmEnOs as hls
