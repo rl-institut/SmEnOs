@@ -58,7 +58,9 @@ transmission = hlsb.get_transmission(conn_oedb, scenario)
 demands_df = hlsb.get_demand(conn_oedb, scenario)
 transformer = hlsb.get_transformer(conn_oedb, scenario)
 # st = hlsb.get_st_timeline(conn, year)  # timeline for solar heat
-
+cal = Germany()
+holidays = dict(cal.holidays(2010))
+    
 ############## Create a simulation object ########################
 simulation = es.Simulation(
     timesteps=list(range(len(time_index))), verbose=True, solver='cbc',
@@ -123,8 +125,6 @@ for region in Regions.regions:
     el_demands['i0'] = float(demands_df.query(
         'region==@region.name and sector=="IND" and type=="electricity"')[
         'demand'])
-    cal = Germany()
-    holidays = dict(cal.holidays(2010))
     am, pm, profile_factors = hls.ind_profile_parameters()
     hls.el_load_profiles(demand, el_demands, year, holidays=holidays,
                          am=am, pm=pm, profile_factors=profile_factors)

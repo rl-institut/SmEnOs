@@ -563,7 +563,7 @@ def scale_profile(demand, year, filename, annual_demand):
     return demand
 
 
-def call_heat_demandlib(region, year, **kwargs):
+def call_heat_demandlib(region, time_index, **kwargs):
     '''
     Calls the demandlib and creates an object which includes the demand
     timeseries.
@@ -573,19 +573,17 @@ def call_heat_demandlib(region, year, **kwargs):
     demand : Sink object
     region : Region object
     '''
-    holidays = helpers.get_german_holidays(year, ['Germany', region.name])
-    load_profile = eb.Building().hourly_heat_demand(
-        fun=bdew_heat.create_bdew_profile,
-        datapath="../../oemof/oemof/demandlib/bdew_data",
-        year=year, holidays=holidays,
+    load_profile = bdew.HeatBuilding(
+        time_index,
+        holidays=kwargs.get('holidays', None),
         temperature=region.temp,
         shlp_type=kwargs.get('shlp_type', None),
         building_class=(region.building_class
                         if region.building_class is not None else 0),
         wind_class=region.wind_class,
-        ww_incl=kwargs.get('ww_incl', True),
-        annual_heat_demand=kwargs.get(
-            'annual_heat_demand', None))
+        annual_heat_demand=kwargs.get('annual_heat_demand', None),
+        name=kwargs.get('shlp_type', None),
+        ww_incl=kwargs.get('ww_incl', True)).get_bdew_profile()
     return load_profile
 
 
