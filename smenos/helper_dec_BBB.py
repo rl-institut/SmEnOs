@@ -22,7 +22,8 @@ import helper_BBB as hlsb
 
 def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                               time_index, eta_th, eta_in, eta_out, cap_loss,
-                              opex_fix, opex_var, eta_th_chp, eta_el_chp):
+                              opex_fix, opex_var, eta_th_chp, eta_el_chp,
+                              holidays):
 
     heating_system_commodity = {
         'hard_coal_dec': 'hard_coal',
@@ -76,7 +77,8 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     hhp.create_hp_entities(region, year, data_dem,
                         elec_bus, temp, share_sfh_hp, share_ww,
                         share_air_hp, share_heating_rod, share_heat_storage,
-                        eta_th, eta_in, eta_out, cap_loss, opex_fix)
+                        eta_th, eta_in, eta_out, cap_loss, opex_fix,
+                        holidays)
                 elif ressource in list(heating_system_commodity.keys()):
                     # create bus(bedarfsbus)
                     Bus(uid=('bus', region.name, sec, ressource), type=ressource,
@@ -89,10 +91,12 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    profile_efh = hls.call_heat_demandlib(region, year,
+                    profile_efh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(data_dem * region.share_efh),
                         shlp_type='EFH', ww_incl=True)
-                    profile_mfh = hls.call_heat_demandlib(region, year,
+                    profile_mfh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(data_dem *
                             (1 - region.share_efh)),
                         shlp_type='MFH', ww_incl=True)
@@ -112,11 +116,13 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                 elif ressource == 'dh':
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    profile_efh = hls.call_heat_demandlib(region, year,
+                    profile_efh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(
                             data_dem * region.share_efh),
                         shlp_type='EFH', ww_incl=True)
-                    profile_mfh = hls.call_heat_demandlib(region, year,
+                    profile_mfh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(data_dem *
                             (1 - region.share_efh)),
                         shlp_type='MFH', ww_incl=True)
@@ -133,10 +139,12 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    profile_efh = hls.call_heat_demandlib(region, year,
+                    profile_efh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(data_dem * region.share_efh),
                         shlp_type='EFH', ww_incl=True)
-                    profile_mfh = hls.call_heat_demandlib(region, year,
+                    profile_mfh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(data_dem *
                             (1 - region.share_efh)),
                         shlp_type='MFH', ww_incl=True)
@@ -168,10 +176,12 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    profile_efh = hls.call_heat_demandlib(region, year,
+                    profile_efh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(data_dem * region.share_efh),
                         shlp_type='EFH', ww_incl=True)
-                    profile_mfh = hls.call_heat_demandlib(region, year,
+                    profile_mfh = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=(data_dem *
                             (1 - region.share_efh)),
                         shlp_type='MFH', ww_incl=True)
@@ -217,7 +227,8 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    demand.val = hls.call_heat_demandlib(region, year,
+                    demand.val = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=data_dem,
                         shlp_type='GHD', ww_incl=True)
                     # create transformer
@@ -234,7 +245,8 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                 elif ressource == 'dh':
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    dh_demand += hls.call_heat_demandlib(region, year,
+                    dh_demand += hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=data_dem,
                         shlp_type='GHD', ww_incl=True)
                 elif ressource == 'bhkw_bio':
@@ -249,7 +261,8 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    demand.val = hls.call_heat_demandlib(region, year,
+                    demand.val = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=data_dem,
                         shlp_type='GHD', ww_incl=True)
                     # create transformer
@@ -278,7 +291,8 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                         region=region)
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
-                    demand.val = hls.call_heat_demandlib(region, year,
+                    demand.val = hls.call_heat_demandlib(region, time_index,
+                        holidays=holidays,
                         annual_heat_demand=data_dem,
                         shlp_type='GHD', ww_incl=True)
                     # create transformer
