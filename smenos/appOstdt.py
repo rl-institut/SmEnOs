@@ -172,7 +172,8 @@ for region in SmEnOsReg.regions:
                 hhp.create_hp_entities(region, year, demand_sector[ressource],
                     elec_bus, temp, share_sfh_hp, share_ww,
                     share_air_hp, share_heating_rod, share_heat_storage,
-                    eta_th, eta_in, eta_out, cap_loss, opex_fix)
+                    eta_th, eta_in, eta_out, cap_loss, opex_fix,
+                    holidays)
             elif ressource in list(heating_system_commodity.keys()):
                 # create bus(bedarfsbus)
                 Bus(uid=('bus', region.name, sec, ressource), type=ressource,
@@ -353,9 +354,9 @@ for region in SmEnOsReg.regions:
                 except:
                     eta_ressource = eta_th[ressource]
                 demand.val = (hls.call_ind_profile(
-                    year, demand_sector[ressource],
+                    time_index, demand_sector[ressource],
                     am=am, pm=pm, profile_factors=profile_factors) *
-                    eta_ressource)
+                    eta_ressource, holidays=holidays)
                 # create transformer
                 transformer.Simple(
                     uid=('transformer', region.name, sec, ressource),
@@ -384,9 +385,9 @@ for region in SmEnOsReg.regions:
                 except:
                     eta_ressource = eta_th[ressource]
                 demand.val = (hls.call_ind_profile(
-                    year, demand_sector[ressource],
+                    time_index, demand_sector[ressource],
                     am=am, pm=pm, profile_factors=profile_factors) *
-                    eta_ressource)
+                    eta_ressource, holidays=holidays)
                 # create transformer
                 transformer.Simple(
                     uid=('transformer', region.name, sec, ressource),
@@ -401,8 +402,9 @@ for region in SmEnOsReg.regions:
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
                 dh_demand += hls.call_ind_profile(
-                    year, demand_sector[ressource],
-                    am=am, pm=pm, profile_factors=profile_factors)
+                    time_index, demand_sector[ressource],
+                    am=am, pm=pm, profile_factors=profile_factors,
+                    holidays=holidays)
 
     # create dh sink
         # create sink

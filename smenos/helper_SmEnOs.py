@@ -595,13 +595,14 @@ def ind_profile_parameters():
     return am, pm, profile_factors
 
 
-def call_ind_profile(year, annual_demand, **kwargs):
+def call_ind_profile(time_index, annual_demand, **kwargs):
     '''
     Creates an industrial load profile as step load profile.
     '''
-    ilp = eb.IndustrialLoadProfile(
-        method='simple_industrial_profile', year=year,
-        annual_demand=annual_demand,
+    ilp = profiles.IndustrialLoadProfile(time_index,
+                                         holidays=kwargs.get('holidays', None))
+    load_profile = ilp.simple_profile(annual_demand,
         am=kwargs.get('am', None), pm=kwargs.get('pm', None),
         profile_factors=kwargs.get('profile_factors', None))
-    return ilp.slp
+    load_profile = load_profile.resample('H').mean()
+    return load_profile
