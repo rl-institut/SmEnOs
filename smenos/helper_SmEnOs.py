@@ -543,6 +543,9 @@ def el_load_profiles(demand, ann_el_demand_per_sector, year, **kwargs):
     # factors by default
     elec_demand['i0'] = ilp.simple_profile(ann_el_demand_per_sector['i0'])
     
+    # Resample 15-minute values to hourly values.
+    elec_demand = elec_demand.resample('H').mean()
+
     demand.val = elec_demand.sum(axis=1)
     return demand
     
