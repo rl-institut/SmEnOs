@@ -121,6 +121,7 @@ for region in SmEnOsReg.regions:
     # create el. profile and write to sink object
     filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                             '50Hertz2010_y.csv'))
+    hls.scale_profile(demand, year, filename, el_demand)
     hls.call_el_demandlib(demand, method='scale_profile_csv', year=year,
                           path='', filename=filename,
                           annual_elec_demand=el_demand)

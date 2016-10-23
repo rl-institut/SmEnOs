@@ -550,7 +550,14 @@ def el_load_profiles(demand, ann_el_demand_per_sector, year, **kwargs):
     return demand
     
 
+def scale_profile(demand, year, filename, annual_demand):
     '''
+    scale a given profile to a given annual demand, which is the sum
+    of the single profile values
+    '''
+    profile = pd.read_csv(filename, sep=",")
+
+    demand.val = (profile / profile.sum() * annual_demand)
     return demand
 
 
