@@ -10,9 +10,8 @@ from datetime import time as settime
 
 from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import sources as source
-from oemof.demandlib import demand as dm
-from oemof.demandlib import energy_buildings as eb
-from oemof.demandlib import bdew_heatprofile as bdew_heat
+import demandlib.bdew as bdew
+import demandlib.particular_profiles as profiles
 from oemof.tools import helpers
 from oemof import db
 
@@ -528,10 +527,25 @@ def scale_profile_to_sum_of_energy(filename, energy, capacity):
     return generation_profile
 
 
-def call_el_demandlib(demand, method, year, **kwargs):
-    '''
-    Calls the demandlib and creates an object which includes the demand
-    timeseries.
+def el_load_profiles(demand, ann_el_demand_per_sector, year, **kwargs):
+
+    # read standard load profiles
+    e_slp = bdew.ElecSlp(year, holidays=kwargs.get('holidays', None))
+    
+    # multiply given annual demand with timeseries
+    elec_demand = e_slp.get_profile(ann_el_demand_per_sector)
+    
+    # Add the slp for the industrial group
+    ilp = profiles.IndustrialLoadProfile(
+        e_slp.date_time_index, holidays=kwargs.get('holidays', None))
+    
+    # Beginning and end of workday, weekdays and weekend days, and scaling 
+    # factors by default
+    elec_demand['i0'] = ilp.simple_profile(ann_el_demand_per_sector['i0'])
+    
+    demand.val = elec_demand.sum(axis=1)
+    return demand
+    
 
     Required Parameters
     -------------------

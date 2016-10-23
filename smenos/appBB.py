@@ -119,18 +119,11 @@ for region in Regions.regions:
     el_demands['g0'] = float(demands_df.query(
         'region==@region.name and sector=="GHD" and type=="electricity"')[
         'demand'])
-    el_demands['g1'] = 0
-    el_demands['g2'] = 0
-    el_demands['g3'] = 0
-    el_demands['g4'] = 0
-    el_demands['g5'] = 0
-    el_demands['g6'] = 0
     el_demands['i0'] = float(demands_df.query(
         'region==@region.name and sector=="IND" and type=="electricity"')[
         'demand'])
-    hls.call_el_demandlib(demand, method='calculate_profile', year=year,
-                          ann_el_demand_per_sector=el_demands)
-    print(demand.val)
+    hls.el_load_profiles(demand, el_demands, year)
+    demand.val.to_csv('~/git_repositories/reegis_hp/el_demand_bb_' + region.name + '_2.csv')
     if region.name != 'BE':
         demand = sink.Simple(uid=('demand', region.name, 'elec', 'mob'),
                          inputs=[obj for obj in region.entities if obj.uid ==
