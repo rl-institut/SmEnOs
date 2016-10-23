@@ -122,10 +122,8 @@ for region in SmEnOsReg.regions:
     filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                             '50Hertz2010_y.csv'))
     hls.scale_profile(demand, year, filename, el_demand)
-    hls.call_el_demandlib(demand, method='scale_profile_csv', year=year,
-                          path='', filename=filename,
-                          annual_elec_demand=el_demand)
-
+    demand.val.to_csv('~/git_repositories/reegis_hp/el_demand_' + region.name + '_2.csv')
+    
 # Add heat sinks, buses and transformer for each region, sector and ressource
 
 #TODO solar_heat_dec wird nicht betrachtet

@@ -128,7 +128,6 @@ for region in Regions.regions:
     am, pm, profile_factors = hls.ind_profile_parameters()
     hls.el_load_profiles(demand, el_demands, year, holidays=holidays,
                          am=am, pm=pm, profile_factors=profile_factors)
-    demand.val.to_csv('~/git_repositories/reegis_hp/el_demand_bb_' + region.name + '_2.csv')
     if region.name != 'BE':
         demand = sink.Simple(uid=('demand', region.name, 'elec', 'mob'),
                          inputs=[obj for obj in region.entities if obj.uid ==
