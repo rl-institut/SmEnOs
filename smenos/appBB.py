@@ -22,6 +22,7 @@ import helper_SmEnOs as hls
 import helper_BBB as hlsb
 import helper_dec_BBB as hlsd
 import numpy as np
+from workalendar.europe import Germany
 
 # choose scenario
 scenario = 'gruene2030'
@@ -122,7 +123,9 @@ for region in Regions.regions:
     el_demands['i0'] = float(demands_df.query(
         'region==@region.name and sector=="IND" and type=="electricity"')[
         'demand'])
-    hls.el_load_profiles(demand, el_demands, year)
+    cal = Germany()
+    holidays = dict(cal.holidays(2010))
+    hls.el_load_profiles(demand, el_demands, year, holidays=holidays)
     demand.val.to_csv('~/git_repositories/reegis_hp/el_demand_bb_' + region.name + '_2.csv')
     if region.name != 'BE':
         demand = sink.Simple(uid=('demand', region.name, 'elec', 'mob'),
