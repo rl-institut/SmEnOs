@@ -385,7 +385,7 @@ for region in SmEnOsReg.regions:
                 except:
                     eta_ressource = eta_th[ressource]
                 demand.val = (hls.call_ind_profile(
-                    time_index, demand_sector[ressource], holidays=holidays
+                    time_index, demand_sector[ressource], holidays=holidays,
                     am=am, pm=pm, profile_factors=profile_factors) *
                     eta_ressource)
                 # create transformer

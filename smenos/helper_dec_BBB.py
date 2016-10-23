@@ -335,7 +335,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
                     demand.val = (hls.call_ind_profile(
-                        year, data_dem,
+                        time_index, data_dem, holidays=holidays,
                         am=am, pm=pm, profile_factors=profile_factors))
                     # create transformer
                     transformer.Simple(
@@ -362,7 +362,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
                     demand.val = (hls.call_ind_profile(
-                        year, data_dem,
+                        time_index, data_dem, holidays=holidays,
                         am=am, pm=pm, profile_factors=profile_factors))
                     # create transformer
                     transformer.CHP(
@@ -391,7 +391,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
                     demand.val = (hls.call_ind_profile(
-                        year, data_dem,
+                        time_index, data_dem, holidays=holidays,
                         am=am, pm=pm, profile_factors=profile_factors))
                     # create transformer
                     transformer.CHP(
@@ -411,7 +411,7 @@ def create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                     # create heat load profile and write to sink object
                     # heat load in [MWh/a]
                     dh_demand += hls.call_ind_profile(
-                        year, data_dem,
+                        time_index, data_dem, holidays=holidays,
                         am=am, pm=pm, profile_factors=profile_factors)
     
         # create dh sink
