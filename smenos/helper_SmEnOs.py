@@ -541,7 +541,9 @@ def el_load_profiles(demand, ann_el_demand_per_sector, year, **kwargs):
     
     # Beginning and end of workday, weekdays and weekend days, and scaling 
     # factors by default
-    elec_demand['i0'] = ilp.simple_profile(ann_el_demand_per_sector['i0'])
+    elec_demand['i0'] = ilp.simple_profile(ann_el_demand_per_sector['i0'],
+            am=kwargs.get('am'), pm=kwargs.get('pm'),
+            profile_factors=kwargs.get('profile_factors'))
     
     # Resample 15-minute values to hourly values.
     elec_demand = elec_demand.resample('H').mean()
