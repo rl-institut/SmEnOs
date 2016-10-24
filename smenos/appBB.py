@@ -22,6 +22,7 @@ import helper_SmEnOs as hls
 import helper_BBB as hlsb
 import helper_dec_BBB as hlsd
 import numpy as np
+from workalendar.europe import Germany
 
 # choose scenario
 scenario = 'gruene2030'
@@ -57,7 +58,9 @@ transmission = hlsb.get_transmission(conn_oedb, scenario)
 demands_df = hlsb.get_demand(conn_oedb, scenario)
 transformer = hlsb.get_transformer(conn_oedb, scenario)
 # st = hlsb.get_st_timeline(conn, year)  # timeline for solar heat
-
+cal = Germany()
+holidays = dict(cal.holidays(2010))
+    
 ############## Create a simulation object ########################
 simulation = es.Simulation(
     timesteps=list(range(len(time_index))), verbose=True, solver='cbc',
@@ -119,18 +122,12 @@ for region in Regions.regions:
     el_demands['g0'] = float(demands_df.query(
         'region==@region.name and sector=="GHD" and type=="electricity"')[
         'demand'])
-    el_demands['g1'] = 0
-    el_demands['g2'] = 0
-    el_demands['g3'] = 0
-    el_demands['g4'] = 0
-    el_demands['g5'] = 0
-    el_demands['g6'] = 0
     el_demands['i0'] = float(demands_df.query(
         'region==@region.name and sector=="IND" and type=="electricity"')[
         'demand'])
-    hls.call_el_demandlib(demand, method='calculate_profile', year=year,
-                          ann_el_demand_per_sector=el_demands)
-    print(demand.val)
+    am, pm, profile_factors = hls.ind_profile_parameters()
+    hls.el_load_profiles(demand, el_demands, year, holidays=holidays,
+                         am=am, pm=pm, profile_factors=profile_factors)
     if region.name != 'BE':
         demand = sink.Simple(uid=('demand', region.name, 'elec', 'mob'),
                          inputs=[obj for obj in region.entities if obj.uid ==
@@ -177,7 +174,8 @@ print("('bus', 'BE', 'biomass')")
                 ########### decentral #####################
 hlsd.create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
                                time_index, eta_th, eta_in, eta_out, cap_loss,
-                               opex_fix, opex_var, eta_th_chp, eta_el_chp)
+                               opex_fix, opex_var, eta_th_chp, eta_el_chp,
+                               holidays)
 
 # renewable parameters
 site = hls.get_res_parameters()
