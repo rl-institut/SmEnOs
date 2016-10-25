@@ -144,7 +144,7 @@ def cop_ww(temp, ww_profile_sfh, ww_profile_mfh, **kwargs):
     return cop
 
 
-def hp_load_profiles(region, year, demand, share_sfh_hp, share_ww):
+def hp_load_profiles(region, year, demand, share_sfh_hp, share_ww, holidays):
     # splitting of heat load profiles in sfh and mfh as well as ww and heating
     time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
     profile_sfh_heating = pd.Series(0, index=time_index)
@@ -157,24 +157,24 @@ def hp_load_profiles(region, year, demand, share_sfh_hp, share_ww):
     demand_hp = demand * 1.5
     if share_sfh_hp != 0:
         profile_sfh_heating = hls.call_heat_demandlib(
-            region, year,
+            region, time_index, holidays=holidays,
             annual_heat_demand=(
                 demand_hp * share_sfh_hp * (1 - share_ww)),
             shlp_type='EFH', ww_incl=False)
         profile_sfh_heating_ww = hls.call_heat_demandlib(
-            region, year,
+            region, time_index, holidays=holidays,
             annual_heat_demand=demand_hp * share_sfh_hp,
             shlp_type='EFH', ww_incl=True)
         profile_sfh_ww = profile_sfh_heating_ww - profile_sfh_heating
 
     if share_sfh_hp != 1:
         profile_mfh_heating = hls.call_heat_demandlib(
-            region, year,
+            region, time_index, holidays=holidays,
             annual_heat_demand=(
                 demand_hp * (1 - share_sfh_hp) * (1 - share_ww)),
             shlp_type='MFH', ww_incl=False)
         profile_mfh_heating_ww = hls.call_heat_demandlib(
-            region, year,
+            region, time_index, holidays=holidays,
             annual_heat_demand=demand_hp * (1 - share_sfh_hp),
             shlp_type='MFH', ww_incl=True)
         profile_mfh_ww = profile_mfh_heating_ww - profile_mfh_heating
@@ -184,12 +184,12 @@ def hp_load_profiles(region, year, demand, share_sfh_hp, share_ww):
 
 def create_hp_entities(region, year, demand, elec_bus, temp,
     share_sfh_hp, share_ww, share_air_hp, share_heating_rod, share_heat_storage,
-    eta_th, eta_in, eta_out, cap_loss, opex_fix):
+    eta_th, eta_in, eta_out, cap_loss, opex_fix, holidays):
 
     # get profiles
     (profile_sfh_heating, profile_mfh_heating, profile_sfh_ww,
     profile_mfh_ww) = hp_load_profiles(
-        region, year, demand, share_sfh_hp, share_ww)
+        region, year, demand, share_sfh_hp, share_ww, holidays)
 
     # create buses and sinks for each heat pump as well as heating and ww
     if share_air_hp != 0:

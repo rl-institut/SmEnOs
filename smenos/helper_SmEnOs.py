@@ -10,9 +10,8 @@ from datetime import time as settime
 
 from oemof.core.network.entities.components import transformers as transformer
 from oemof.core.network.entities.components import sources as source
-from oemof.demandlib import demand as dm
-from oemof.demandlib import energy_buildings as eb
-from oemof.demandlib import bdew_heatprofile as bdew_heat
+import demandlib.bdew as bdew
+import demandlib.particular_profiles as profiles
 from oemof.tools import helpers
 from oemof import db
 
@@ -528,47 +527,43 @@ def scale_profile_to_sum_of_energy(filename, energy, capacity):
     return generation_profile
 
 
-def call_el_demandlib(demand, method, year, **kwargs):
-    '''
-    Calls the demandlib and creates an object which includes the demand
-    timeseries.
+def el_load_profiles(demand, ann_el_demand_per_sector, year, **kwargs):
 
-    Required Parameters
-    -------------------
-    demand :
-    method : Method which is to be applied for the demand calculation
+    # read standard load profiles
+    e_slp = bdew.ElecSlp(year, holidays=kwargs.get('holidays', None))
+    
+    # multiply given annual demand with timeseries
+    elec_demand = e_slp.get_profile(ann_el_demand_per_sector)
+    
+    # Add the slp for the industrial group
+    ilp = profiles.IndustrialLoadProfile(
+        e_slp.date_time_index, holidays=kwargs.get('holidays', None))
+    
+    # Beginning and end of workday, weekdays and weekend days, and scaling 
+    # factors by default
+    elec_demand['i0'] = ilp.simple_profile(ann_el_demand_per_sector['i0'],
+            am=kwargs.get('am'), pm=kwargs.get('pm'),
+            profile_factors=kwargs.get('profile_factors'))
+    
+    # Resample 15-minute values to hourly values.
+    elec_demand = elec_demand.resample('H').mean()
+
+    demand.val = elec_demand.sum(axis=1)
+    return demand
+    
+
+def scale_profile(demand, year, filename, annual_demand):
     '''
-#    demand.val = dm.electrical_demand(method,
-    demand_values = dm.electrical_demand(method,
-                             year=year,
-                             annual_elec_demand=kwargs.get(
-                             'annual_elec_demand'),
-                             ann_el_demand_per_sector=kwargs.get(
-                             'ann_el_demand_per_sector'),
-                             path=kwargs.get('path'),
-                             filename=kwargs.get('filename'),
-                             ann_el_demand_per_person=kwargs.get(
-                             'ann_el_demand_per_person'),
-                             household_structure=kwargs.get(
-                             'household_structure'),
-                             household_members_all=kwargs.get(
-                             'household_members_all'),
-                             population=kwargs.get(
-                             'population'),
-                             comm_ann_el_demand_state=kwargs.get(
-                             'comm_ann_el_demand_state'),
-                             comm_number_of_employees_state=kwargs.get(
-                             'comm_number_of_employees_state'),
-                             comm_number_of_employees_region=kwargs.get(
-                             'comm_number_of_employees_region')).elec_demand
-    if method == 'calculate_profile':
-        demand.val = demand_values.sum(axis=1)
-    else:
-        demand.val = demand_values['load']
+    scale a given profile to a given annual demand, which is the sum
+    of the single profile values
+    '''
+    profile = pd.read_csv(filename, sep=",")
+
+    demand.val = (profile / profile.sum() * annual_demand)
     return demand
 
 
-def call_heat_demandlib(region, year, **kwargs):
+def call_heat_demandlib(region, time_index, **kwargs):
     '''
     Calls the demandlib and creates an object which includes the demand
     timeseries.
@@ -578,19 +573,17 @@ def call_heat_demandlib(region, year, **kwargs):
     demand : Sink object
     region : Region object
     '''
-    holidays = helpers.get_german_holidays(year, ['Germany', region.name])
-    load_profile = eb.Building().hourly_heat_demand(
-        fun=bdew_heat.create_bdew_profile,
-        datapath="../../oemof/oemof/demandlib/bdew_data",
-        year=year, holidays=holidays,
+    load_profile = bdew.HeatBuilding(
+        time_index,
+        holidays=kwargs.get('holidays', None),
         temperature=region.temp,
         shlp_type=kwargs.get('shlp_type', None),
         building_class=(region.building_class
                         if region.building_class is not None else 0),
         wind_class=region.wind_class,
-        ww_incl=kwargs.get('ww_incl', True),
-        annual_heat_demand=kwargs.get(
-            'annual_heat_demand', None))
+        annual_heat_demand=kwargs.get('annual_heat_demand', None),
+        name=kwargs.get('shlp_type', None),
+        ww_incl=kwargs.get('ww_incl', True)).get_bdew_profile()
     return load_profile
 
 
@@ -602,13 +595,14 @@ def ind_profile_parameters():
     return am, pm, profile_factors
 
 
-def call_ind_profile(year, annual_demand, **kwargs):
+def call_ind_profile(time_index, annual_demand, **kwargs):
     '''
     Creates an industrial load profile as step load profile.
     '''
-    ilp = eb.IndustrialLoadProfile(
-        method='simple_industrial_profile', year=year,
-        annual_demand=annual_demand,
+    ilp = profiles.IndustrialLoadProfile(time_index,
+                                         holidays=kwargs.get('holidays', None))
+    load_profile = ilp.simple_profile(annual_demand,
         am=kwargs.get('am', None), pm=kwargs.get('pm', None),
         profile_factors=kwargs.get('profile_factors', None))
-    return ilp.slp
+    load_profile = load_profile.resample('H').mean()
+    return load_profile
