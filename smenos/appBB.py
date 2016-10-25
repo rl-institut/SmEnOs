@@ -40,6 +40,7 @@ cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
 max_biomass = 16111111  # 58 PJ per year
 energy_emob_BB = 2183000  # 7,86 PJ per year (10% of whole traffic)
+energy_emob_BE = 1298333
 share_emob = {}
 share_emob['PO'] = 0.16
 share_emob['UB'] = 0.12
@@ -96,6 +97,7 @@ filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
 
 emob_DE = pd.read_csv(filename, delimiter=',')
 emob_BB = emob_DE['sink_fixed'] * energy_emob_BB / emob_DE['sink_fixed'].sum()
+emob_BE = emob_DE['sink_fixed'] * energy_emob_BE / emob_DE['sink_fixed'].sum()
 
 # Add electricity sink and bus for each region
 for region in Regions.regions:
@@ -138,6 +140,12 @@ for region in Regions.regions:
                          regions=[region])
         emob = emob_BB * share_emob[region.name]
         demand.val = emob
+    else:
+        demand = sink.Simple(uid=('demand', region.name, 'elec', 'mob'),
+                         inputs=[obj for obj in region.entities if obj.uid ==
+                                 "('bus', '"+region.name+"', 'elec')"],
+                         regions=[region])
+        demand.val = emob_BE
 
 # Add global buses for BB and BE
 typeofgen_global = ['natural_gas', 'natural_gas_cc', 'lignite',
