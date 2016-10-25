@@ -31,7 +31,9 @@ scenario = 'gruene2030'
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
-time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
+time_index = pd.date_range('1/1/{0}'.format(year), periods=2, freq='H')
+time_index_demandlib = pd.date_range(
+    '1/1/{0}'.format(year), periods=8760, freq='H')
 conn = db.connection()
 conn_oedb = db.connection(section='open_edb')
 
@@ -173,7 +175,8 @@ print("('bus', 'BE', 'biomass')")
 ################# create transformers ######################
                 ########### decentral #####################
 hlsd.create_decentral_entities(Regions, regionsBBB, demands_df, conn, year,
-                               time_index, eta_th, eta_in, eta_out, cap_loss,
+                               time_index_demandlib, eta_th, eta_in, eta_out,
+                               cap_loss,
                                opex_fix, opex_var, eta_th_chp, eta_el_chp,
                                holidays)
 
