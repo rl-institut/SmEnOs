@@ -25,7 +25,7 @@ import numpy as np
 from workalendar.europe import Germany
 
 # choose scenario
-scenario = 'gruene2030'
+scenario = 'ES2030'
 
 # Basic inputs
 warnings.simplefilter(action="ignore", category=RuntimeWarning)
