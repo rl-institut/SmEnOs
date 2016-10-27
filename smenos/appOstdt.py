@@ -43,8 +43,11 @@ year = 2010
 time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
 overwrite = True
 conn = db.connection()
-Offshore_Scenario = 2016  # which parks are already running in this year
+# Offshore_Scenario = 2016  # which parks are already running in this year
 # there are some planned for 2017, 18 and 19
+
+filename_ee = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                        'nep2024_ee.p'))
 
 cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
@@ -446,9 +449,8 @@ typeofgen_global.append('biomass')
 #feedin_df, cap = feedin_offs.Feedin().aggregate_cap_val(
     #conn, year=year, schema='oemof_test', table='baltic_wind_farms',
     #start_year=Offshore_Scenario, bustype='elec', **site_os)
-filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                        'statusquoee.p'))
-status_Quo_EE = pickle.load(open(filename, "rb"))
+
+status_Quo_EE = pickle.load(open(filename_ee, "rb"))
 filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                         'res_timeseries_smenosMV_.csv'))
 feedin_df = pd.read_csv(filename, delimiter=',', index_col=0)
