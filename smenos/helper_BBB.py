@@ -57,8 +57,8 @@ def get_parameters(conn_oedb):
     eta_th_chp = parameters['eta_th_chp']
 
     eta_chp_flex_el = parameters['eta_chp_flex_el']
-    eta_chp_flex_el['jaenschwalde'] = 0.42
-    eta_chp_flex_el['schwarzepumpe'] = 0.4
+    eta_chp_flex_el['jaenschwalde'] = 0.35
+    eta_chp_flex_el['schwarzepumpe'] = 0.39
 
     sigma_chp = parameters['sigma_chp']
     beta_chp = parameters['beta_chp']
