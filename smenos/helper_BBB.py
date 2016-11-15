@@ -201,8 +201,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
     'Creates entities for each type of generation'
 
     typeofgen = kwargs.get('typeofgen')
-    chp_faktor_flex = kwargs.get('chp_faktor_flex', 0.84)
-    cap_initial = kwargs.get('cap_initial', 0)
 
     (co2_emissions, co2_fix, eta_elec, eta_th, eta_th_chp, eta_el_chp,
      eta_chp_flex_el, sigma_chp, beta_chp, opex_var, opex_fix, capex,
@@ -239,7 +237,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     out_max=get_out_max_chp(
                             cap, eta_th_chp[typ], eta_el_chp[typ]),
                     eta=[eta_el_chp[typ], eta_th_chp[typ]],
-                    opex_var=opex_var[typ],
                     co2_var=co2_emissions[typ],
                     regions=[region])
 
@@ -253,7 +250,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     in_max=[None],
                     out_max=[cap_2],
                     eta=[eta_el_chp[typ]],
-                    opex_var=opex_var[typ],
                     co2_var=co2_emissions[typ],
                     regions=[region])
 
@@ -276,7 +272,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 out_max=get_out_max_chp(
                         capacity, eta_th_chp[typ], eta_el_chp[typ]),
                 eta=[eta_el_chp[typ], eta_th_chp[typ]],
-                opex_var=opex_var[typ],
                 co2_var=co2_emissions[typ],
                 regions=[region])
 
@@ -301,7 +296,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 eta_el_cond=eta_chp_flex_el[typ],
                 sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
                 beta=beta_chp[typ],		# power loss index
-                opex_var=opex_var[typ],
                 co2_var=co2_emissions[typ],
                 regions=[region])
 
@@ -321,7 +315,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                 in_max=[None],
                 out_max=[capacity],
                 eta=[eta_elec[typ]],
-                opex_var=opex_var[typ],
                 co2_var=co2_emissions[typ],
                 regions=[region])
 
@@ -355,7 +348,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
                     in_max=[None],
                     out_max=[capacity],
                     eta=[eta_th[typ]],
-                    opex_var=opex_var[typ],
                     co2_var=co2_emissions[typ],
                     regions=[region])
 
@@ -379,7 +371,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
             eta_el_cond=eta_chp_flex_el['schwarzepumpe'],
             sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
             beta=beta_chp[typ],		# power loss index
-            opex_var=opex_var[typ],
             co2_var=co2_emissions[typ],
             regions=[region])
 
@@ -400,7 +391,6 @@ def create_transformer(esystem, region, pp, conn, **kwargs):
             eta_el_cond=eta_chp_flex_el['jaenschwalde'],  #TODO: softcode
             sigma=sigma_chp[typ],	 # power to heat ratio in backpr. mode
             beta=beta_chp[typ],		# power loss index
-            opex_var=opex_var[typ],
             co2_var=co2_emissions[typ]*0.08,  # 92% Abscheiderate  #TODO: softcode
             regions=[region])
 
@@ -429,17 +419,36 @@ def get_constraint_values(conn_oedb, scenario_name):
         columns=['constr', 'val'])
 
     return(read_parameter)
+    
+
+def get_emob_values(conn_oedb, scenario_name):
+    'values for constraints in scenario'
+
+    sql = """
+        SELECT region, energy
+        FROM model_draft.abbb_emob AS d
+        WHERE scenario = '""" + str(scenario_name) + """'"""
+    read_parameter = pd.DataFrame(
+        conn_oedb.execute(sql).fetchall(),
+        columns=['region', 'energy'])
+
+    return(read_parameter)
+
 
 def add_constraint_export_minimum(om, Export_Regions, constraints):
     # returns all transport entities
     tmp_entities = [obj for obj in om.energysystem.entities
         if 'transport' in obj.uid]
     # returns all transport entities with transport to region in Export_Regions
-    exports = [obj for obj in tmp_entities
+    exports_1 = [obj for obj in tmp_entities
         if any(region in obj.outputs[0].uid for region in Export_Regions)]
+    exports = [obj for obj in exports_1
+        if 'elec' in obj.outputs[0].uid]
     # returns all transport entities that import from Berlin
-    imports = [obj for obj in tmp_entities
+    imports_1 = [obj for obj in tmp_entities
         if 'BE' in obj.inputs[0].uid]
+    imports = [obj for obj in imports_1
+        if 'elec' in obj.inputs[0].uid]
     # write list to hand over to constraint
     transports_ex = []
     for export in exports:
@@ -461,8 +470,10 @@ def add_constraint_import_berlin(om, constraints):
     tmp_entities = [obj for obj in om.energysystem.entities
         if 'transport' in obj.uid]
     # returns all transport entities that import from BB to Berlin
-    imports = [obj for obj in tmp_entities
+    imports_1 = [obj for obj in tmp_entities
         if 'BE' in obj.outputs[0].uid]
+    imports = [obj for obj in imports_1
+        if 'elec' in obj.outputs[0].uid]
     # write list to hand over to constraint
     transports_im = []
     for imp in imports:
