@@ -2,11 +2,16 @@
 
 from setuptools import setup
 
-setup(name='reegis-hp',
+setup(name='smenos',
       version='0.0.1',
-      author='Uwe Krien',
-      author_email='uwe.krien@rl-institut.de',
-      description='A local heat and power system',
-      package_dir={'reegis_hp': 'reegis_hp'},
-      install_requires=['oemof >= 0.0.6']
+      author='Elisa Gaudchau, Birgit Schachler',
+      author_email='elisa.gaudchau@rl-institut.de',
+      description='Models of the heat and power systems of the region Eastern Germany and the city Greevesmühlen',
+      package_dir={'smenos': 'smenos'},
+      install_requires=['oemof == 0.0.9',
+                        'feedinlib == 0.0.10',
+                        'oemof.db',
+                        'demandlib == 0.1.1',
+                        'workalendar'],
+      dependency_links = ['http://github.com/oemof/oemof.db/tarball/master'] 
       )
