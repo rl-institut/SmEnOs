@@ -17,11 +17,11 @@ import os
 import pandas as pd
 import warnings
 import numpy as np
-import pickle
 from workalendar.europe import Germany
 
 from oemof import db
 from oemof.db import tools
+from oemof.db import coastdat
 from oemof.tools import logger
 from oemof.core import energy_system as es
 from oemof.solph import predefined_objectives as predefined_objectives
@@ -150,14 +150,11 @@ for region in SmEnOsReg.regions:
     nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
     demand_sectors = demands_df.query('nuts_id==@nutID and energy=="heat"')
     # get temperature of region as np array [°C]
-#    multiWeather = coastdat.get_weather(conn, region.geom, year)
-#    temp = np.zeros([len(multiWeather[0].data.index), ])
-#    for weather in multiWeather:
-#        temp += weather.data['temp_air'].as_matrix()
-#    temp = pd.Series(temp / len(multiWeather) - 273.15)
-#    region.temp = temp
-    filename = os.path.abspath(os.path.join(os.path.dirname(__file__), 'temp'))
-    temp = pd.read_pickle(filename)
+    multiWeather = coastdat.get_weather(conn, region.geom, year)
+    temp = np.zeros([len(multiWeather[0].data.index), ])
+    for weather in multiWeather:
+        temp += weather.data['temp_air'].as_matrix()
+    temp = pd.Series(temp / len(multiWeather) - 273.15)
     region.temp = temp
     # create empty dataframe for district heating demand
     dh_demand = pd.Series(0, index=time_index)
