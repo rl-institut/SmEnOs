@@ -18,6 +18,7 @@ from oemof.solph.optimization_model import OptimizationModel
 from oemof.core.network.entities.components import transformers as transformer
 
 import helper_gvm as hlsg
+import helper_dh as hldh
 
 # choose scenario
 scenario = 'gvm1'
@@ -60,10 +61,15 @@ Regions.regions.append(es.Region(
         geom=hlsg.get_polygon_gvm(conn),
         name='GVM'))
 
+##TODO coastdat einbauen
+filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                      'temp'))
+temp = pd.read_pickle(filename)
+
 # Add electricity and heat sinks and buses for each region
 for region in Regions.regions:
     # create electricity bus
-    Bus(uid="('bus', '"+region.name+"', 'elec')",
+    el_bus = Bus(uid="('bus', '"+region.name+"', 'elec')",
         type='elec',
         regions=[region],
         excess=True)
@@ -103,10 +109,10 @@ for region in Regions.regions:
         regions=[region])
 
     # create districtheat bus
-    Bus(uid="('bus', '"+region.name+"', 'dh')",
-        type='dh',
-        regions=[region],
-        excess=True)
+    dh_bus = Bus(uid="('bus', '"+region.name+"', 'dh')",
+                 type='dh',
+                 regions=[region],
+                excess=True)
 
     # create electricity sink
     demand = sink.Simple(uid=('demand', region.name, 'elec'),
@@ -121,6 +127,38 @@ for region in Regions.regions:
                                  "('bus', '"+region.name+"', 'dh')"],
                          val=dh_demand_ts,
                          regions=[region])
+                         
+    # create dh heat pump
+    cap = 80  # muss noch angepasst werden, sollte Grundlast decken können
+    max_supply_temp_hp = 70  # muss noch angepasst werden, sollte so gewählt werden, dass Grundlast gedeckt wird
+    type_hp = 'air'  # muss noch angepasst werden
+    T_supply_max = 95  # Wert laut Datenanfrage, in DB schreiben?
+    T_supply_min = 65  # Wert laut Datenanfrage, in DB schreiben?
+    T_amb_min = -12  # Wert laut Datenanfrage, in DB schreiben?
+    hldh.create_hp_entity(('transformer', region.name, 'dh', 'heat_pump'),
+                          cap, dh_bus, el_bus, region,
+                          max_supply_temp_hp, type_hp,
+                          T_supply_max=T_supply_max,
+                          T_supply_min=T_supply_min, T_amb_min=T_amb_min,
+                          heat_source_temp=temp)
+    # create dh heat storage
+    cap = 80  # muss noch angepasst werden
+    out_max = cap / 4  # muss noch angepasst werden
+    in_max = cap / 4  # muss noch angepasst werden
+    eta_in = 0.98  # Wert aus Wittenberg Simulation
+    eta_out = 0.98  # Wert aus Wittenberg Simulation
+    cap_loss = 0.01  # Wert aus Wittenberg Simulation
+    hldh.create_heat_storage_entity(
+        ('storage', region.name, 'dh'), cap, dh_bus, region,
+         out_max=out_max, in_max=in_max, eta_in=eta_in, eta_out=eta_out,
+         cap_loss=cap_loss)
+    # create dh immersion heater
+    cap = 80  # muss noch angepasst werden   
+    eta = 0.98  # muss noch angepasst werden 
+    transformer.Simple(
+        uid=('transformer', region.name, 'dh', 'immersion_heater'),
+        inputs=[el_bus], outputs=[dh_bus],
+        out_max=[cap], eta=[eta])
 
 # Add global buses
 typeofgen_global = ['natural_gas', 'biogas', 'natural_gas_cc', 'lignite',
