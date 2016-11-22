@@ -36,7 +36,7 @@ conn = db.connection()
 
 ########### get data ###########################################
 filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                        'timeseries_gvm.csv'))
+                                        'gvm/timeseries_gvm.csv'))
 times_gvm = pd.read_csv(filename, delimiter=',')
 
 price_el_ts = times_gvm['price_el']
@@ -77,7 +77,8 @@ for region in Regions.regions:
     Bus(uid="('bus', '"+region.name+"', 'import')",
         type='elec',
         regions=[region],
-        balanced = False)
+        shortage=True,
+        shortage_costs=1)
     Bus(uid="('bus', '"+region.name+"', 'export')",
         type='elec',
         regions=[region],
@@ -105,7 +106,6 @@ for region in Regions.regions:
         in_max=[None],
         out_max=[1000],
         eta=[eta_import],
-        input_costs=1,
         regions=[region])
 
     # create districtheat bus
@@ -135,12 +135,12 @@ for region in Regions.regions:
     T_supply_max = 95  # Wert laut Datenanfrage, in DB schreiben?
     T_supply_min = 65  # Wert laut Datenanfrage, in DB schreiben?
     T_amb_min = -12  # Wert laut Datenanfrage, in DB schreiben?
-    hldh.create_hp_entity(('transformer', region.name, 'dh', 'heat_pump'),
-                          cap, dh_bus, el_bus, region,
-                          max_supply_temp_hp, type_hp,
-                          T_supply_max=T_supply_max,
-                          T_supply_min=T_supply_min, T_amb_min=T_amb_min,
-                          heat_source_temp=temp)
+#    hldh.create_hp_entity(('transformer', region.name, 'dh', 'heat_pump'),
+#                          cap, dh_bus, el_bus, region,
+#                          max_supply_temp_hp, type_hp,
+#                          T_supply_max=T_supply_max,
+#                          T_supply_min=T_supply_min, T_amb_min=T_amb_min,
+#                          heat_source_temp=temp)           ### Fehler beim erstelln: region obj has no attr temp
     # create dh heat storage
     cap = 80  # muss noch angepasst werden
     out_max = cap / 4  # muss noch angepasst werden
