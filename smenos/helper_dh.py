@@ -68,9 +68,9 @@ def create_heat_storage_entity(uid, cap, dh_bus_entity, region, **kwargs):
                         outputs=[dh_bus_entity],
                         cap_max=cap,
                         cap_min=kwargs.get('cap_min', None),
-                        out_max=kwargs.get('out_max', cap/2),
-                        in_max=kwargs.get('in_max', kwargs.get(
-                            'out_max', cap/2)),
+                        out_max=[kwargs.get('out_max', cap/2)],
+                        in_max=[kwargs.get('in_max', kwargs.get(
+                            'out_max', cap/2))],
                         eta_in=kwargs.get('eta_in', 1),
                         eta_out=kwargs.get('eta_out', 1),
                         cap_loss=kwargs.get('cap_loss', 0),

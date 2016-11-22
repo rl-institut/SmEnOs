@@ -62,7 +62,8 @@ def create_powerplants(esystem, region, conn, scenario, schema, table, year):
                     in_max=[None],
                     out_max=[p_el_bhkw, p_th_bhkw],
                     eta=[row['eta_el'], row['eta_th']],
-                    input_costs=row['opex'],
+                    opex_var=row['opex']/(row['eta_el']+row['eta_th']),                    
+                    #input_costs=row['opex'],
                     regions=[region])
 
     # create electric transformer ##############################
@@ -84,7 +85,7 @@ def create_powerplants(esystem, region, conn, scenario, schema, table, year):
                     in_max=[None],
                     out_max=[float(row['power'])],
                     eta=[row['eta_el']],
-                    input_costs=row['opex'],
+                    opex_var=row['opex']/row['eta_el'],
                     regions=[region])
 
     # create heat transformer #################################
@@ -100,13 +101,13 @@ def create_powerplants(esystem, region, conn, scenario, schema, table, year):
                     uid=('transformer', region.name, row['plant'], 't_th',
                          row['fuel']),
                     inputs=[obj for obj in esystem.entities if obj.uid ==
-                             "('bus', '"+region.name+"', 'el')"],
+                             "('bus', 'global', '"+row['fuel']+"')"],
                     outputs=[[obj for obj in region.entities if obj.uid ==
                              "('bus', '"+region.name+"', 'dh')"][0]],
                     in_max=[None],
                     out_max=[float(row['power'])],
                     eta=[row['eta_th']],
-                    input_costs=row['opex'],
+                    opex_var=row['opex']/row['eta_th'],
                     regions=[region])
 
     # create powertoheat transformer #################################
@@ -121,13 +122,13 @@ def create_powerplants(esystem, region, conn, scenario, schema, table, year):
             transformer.Simple(
                     uid=('transformer', region.name, row['plant'], 't_pth'),
                     inputs=[obj for obj in esystem.entities if obj.uid ==
-                            "('bus', 'global', '"+row['fuel']+"')"],
+                            "('bus', '"+region.name+"', 'el')"],
                     outputs=[[obj for obj in region.entities if obj.uid ==
                              "('bus', '"+region.name+"', 'dh')"][0]],
                     in_max=[None],
                     out_max=[float(row['power'])],
                     eta=[row['eta_th']],
-                    input_costs=row['opex'],
+                    opex_var=row['opex']/row['eta_th'],
                     regions=[region])
 
     # create renewable power plants ##########################
