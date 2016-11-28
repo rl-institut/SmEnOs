@@ -18,6 +18,7 @@ import pandas as pd
 import warnings
 import numpy as np
 from workalendar.europe import Germany
+import pickle
 
 from oemof import db
 from oemof.db import tools
@@ -129,7 +130,7 @@ for region in SmEnOsReg.regions:
     filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                             '50Hertz2010_y.csv'))
     hls.scale_profile(demand, year, filename, el_demand)
-    demand.val.to_csv('~/git_repositories/reegis_hp/el_demand_' + region.name + '_2.csv')
+    demand.val.to_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),region.name + '_2.csv')))
     
 # Add heat sinks, buses and transformer for each region, sector and ressource
 
