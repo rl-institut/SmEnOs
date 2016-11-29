@@ -557,9 +557,8 @@ def scale_profile(demand, year, filename, annual_demand):
     scale a given profile to a given annual demand, which is the sum
     of the single profile values
     '''
-    profile = pd.read_csv(filename, sep=",")
-
-    demand.val = (profile / profile.sum() * annual_demand)
+    profile = pd.read_csv(filename, sep=",", index_col=0)
+    demand.val = profile['load'] / profile['load'].sum() * annual_demand
     return demand
 
 
