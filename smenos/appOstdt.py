@@ -42,6 +42,8 @@ warnings.simplefilter(action="ignore", category=RuntimeWarning)
 logger.define_logging()
 year = 2010
 time_index = pd.date_range('1/1/{0}'.format(year), periods=8760, freq='H')
+time_index_demandlib = pd.date_range(
+    '1/1/{0}'.format(year), periods=8760, freq='H')
 overwrite = True
 conn = db.connection()
 # Offshore_Scenario = 2016  # which parks are already running in this year
@@ -121,7 +123,6 @@ for region in SmEnOsReg.regions:
                                  if obj.uid ==
                                  "('bus', '"+region.name+"', 'elec')"],
                          region=region)
-
     # get regional electricity demand [MWh/a]
     nutID = regionsOstdt.query('abbr==@region.name')['nutsID'].values[0]
     el_demand = demands_df.query(
@@ -130,7 +131,7 @@ for region in SmEnOsReg.regions:
     filename = os.path.abspath(os.path.join(os.path.dirname(__file__),
                                             '50Hertz2010_y.csv'))
     hls.scale_profile(demand, year, filename, el_demand)
-    demand.val.to_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),region.name + '_2.csv')))
+    #demand.val.to_csv(os.path.abspath(os.path.join(os.path.dirname(__file__),region.name + '_2.csv')))
     
 # Add heat sinks, buses and transformer for each region, sector and ressource
 
@@ -158,7 +159,7 @@ for region in SmEnOsReg.regions:
     temp = pd.Series(temp / len(multiWeather) - 273.15)
     region.temp = temp
     # create empty dataframe for district heating demand
-    dh_demand = pd.Series(0, index=time_index)
+    dh_demand = pd.Series(0, index=time_index_demandlib)
     # residential sector
     sec = 'residential'
     demand_sector = list(demand_sectors.query('sector==@sec')['demand'])[0]
@@ -187,12 +188,12 @@ for region in SmEnOsReg.regions:
                     region=region)
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
-                profile_efh = hls.call_heat_demandlib(region, time_index,
+                profile_efh = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=(
                         float(demand_sector[ressource]) * region.share_efh),
                     shlp_type='EFH', ww_incl=True)
-                profile_mfh = hls.call_heat_demandlib(region, time_index,
+                profile_mfh = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=(float(demand_sector[ressource]) *
                         (1 - region.share_efh)),
@@ -221,12 +222,12 @@ for region in SmEnOsReg.regions:
                     region=region)
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
-                profile_efh = hls.call_heat_demandlib(region, time_index,
+                profile_efh = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=(
                         float(demand_sector[ressource]) * region.share_efh),
                     shlp_type='EFH', ww_incl=True)
-                profile_mfh = hls.call_heat_demandlib(region, time_index,
+                profile_mfh = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=(float(demand_sector[ressource]) *
                         (1 - region.share_efh)),
@@ -245,12 +246,12 @@ for region in SmEnOsReg.regions:
             elif ressource == 'dh':
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
-                profile_efh = hls.call_heat_demandlib(region, time_index,
+                profile_efh = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=(
                         float(demand_sector[ressource]) * region.share_efh),
                     shlp_type='EFH', ww_incl=True)
-                profile_mfh = hls.call_heat_demandlib(region, time_index,
+                profile_mfh = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=(float(demand_sector[ressource]) *
                         (1 - region.share_efh)),
@@ -280,7 +281,7 @@ for region in SmEnOsReg.regions:
                     region=region)
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
-                demand.val = hls.call_heat_demandlib(region, time_index,
+                demand.val = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=float(demand_sector[ressource]),
                     shlp_type='GHD', ww_incl=True) * eta_th[ressource]
@@ -307,7 +308,7 @@ for region in SmEnOsReg.regions:
                     region=region)
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
-                demand.val = hls.call_heat_demandlib(region, time_index,
+                demand.val = hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=float(demand_sector[ressource]),
                     shlp_type='GHD', ww_incl=True) * eta_th[ressource]
@@ -324,7 +325,7 @@ for region in SmEnOsReg.regions:
             elif ressource == 'dh':
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
-                dh_demand += hls.call_heat_demandlib(region, time_index,
+                dh_demand += hls.call_heat_demandlib(region, time_index_demandlib,
                     holidays=holidays,
                     annual_heat_demand=float(demand_sector[ressource]),
                     shlp_type='GHD', ww_incl=True)
@@ -355,7 +356,7 @@ for region in SmEnOsReg.regions:
                 except:
                     eta_ressource = eta_th[ressource]
                 demand.val = (hls.call_ind_profile(
-                    time_index, float(demand_sector[ressource]), holidays=holidays,
+                    time_index_demandlib, float(demand_sector[ressource]), holidays=holidays,
                     am=am, pm=pm, profile_factors=profile_factors) *
                     eta_ressource)
                 # create transformer
@@ -386,7 +387,7 @@ for region in SmEnOsReg.regions:
                 except:
                     eta_ressource = eta_th[ressource]
                 demand.val = (hls.call_ind_profile(
-                    time_index, float(demand_sector[ressource]), holidays=holidays,
+                    time_index_demandlib, float(demand_sector[ressource]), holidays=holidays,
                     am=am, pm=pm, profile_factors=profile_factors) *
                     eta_ressource)
                 # create transformer
@@ -403,7 +404,7 @@ for region in SmEnOsReg.regions:
                 # create heat load profile and write to sink object
                 # heat load in [MWh/a]
                 dh_demand += hls.call_ind_profile(
-                    time_index, float(demand_sector[ressource]),
+                    time_index_demandlib, float(demand_sector[ressource]),
                     am=am, pm=pm, profile_factors=profile_factors,
                     holidays=holidays)
 
@@ -415,7 +416,7 @@ for region in SmEnOsReg.regions:
             if obj.uid == "('bus', '"+region.name+"', 'dh')"],
         region=region)
     demand.val = dh_demand
-    
+
     transformer.Simple(
         uid=('transformer', region.name, 'dh_peak_heating'),
         inputs=[obj for obj in SmEnOsReg.entities
