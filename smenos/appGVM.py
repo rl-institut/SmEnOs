@@ -145,7 +145,7 @@ for region in Regions.regions:
     logging.info('Processing region: {0}'.format(region.name))
 
     hlsg.create_powerplants(Regions, region, conn, scenario_base,
-                            scenario_heat, schema, table, year)
+                            scenario_heat, schema, table, year, peakshaving)
 
 # Remove orphan buses
 buses = [obj for obj in Regions.entities if isinstance(obj, Bus)]

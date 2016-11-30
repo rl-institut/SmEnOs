@@ -12,6 +12,7 @@ import feedin_nominal
 import helper_SmEnOs as hls
 import helper_dh as hldh
 from shapely.wkt import loads as wkt_loads
+import numpy as np
 
 
 def get_polygon_gvm(conn):
@@ -40,11 +41,15 @@ def get_transformer_db(conn, schema, table, scenario, typ):
 
 
 def create_powerplants(esystem, region, conn, scenario_base, scenario_heat, 
-                       schema, table, year):
+                       schema, table, year, peakshaving=False, ps=0.6):
 
     dh_bus = [obj for obj in region.entities if obj.uid ==
               "('bus', '"+region.name+"', 'dh')"][0]
-    el_bus = [obj for obj in region.entities if obj.uid ==
+    if peakshaving:
+        el_bus = [obj for obj in region.entities if obj.uid ==
+              "('bus', '"+region.name+"', 'el_excess')"][0]
+    else:
+        el_bus = [obj for obj in region.entities if obj.uid ==
               "('bus', '"+region.name+"', 'elec')"][0]
     # create bhkws ###########################################
     pp = get_transformer_db(conn, schema, table, scenario_base, 'bhkw')
@@ -126,10 +131,15 @@ def create_powerplants(esystem, region, conn, scenario_base, scenario_heat,
     else:
         for index, row in pp.iterrows():
             if row['power'] > 0:
+                if peakshaving:
+                    pthbus = [obj for obj in esystem.entities if obj.uid ==
+                                "('bus', '"+region.name+"', 'el_excess')"]
+                else:
+                    pthbus = [obj for obj in esystem.entities if obj.uid ==
+                                "('bus', '"+region.name+"', 'elec')"]
                 transformer.Simple(
                         uid=('transformer', region.name, row['plant'], 't_pth'),
-                        inputs=[obj for obj in esystem.entities if obj.uid ==
-                                "('bus', '"+region.name+"', 'elec')"],
+                        inputs=pthbus,
                         outputs=[[obj for obj in region.entities if obj.uid ==
                                  "('bus', '"+region.name+"', 'dh')"][0]],
                         in_max=[None],
@@ -185,31 +195,63 @@ def create_powerplants(esystem, region, conn, scenario_base, scenario_heat,
     site = hls.get_res_parameters()
     feedin_df, cap = feedin_nominal.Feedin().aggregate_cap_val(
              conn, region=region, year=year, bustype='elec', **site)
-    print('wind:')
-    print(feedin_df['wind_pwr'])
+
+    feedin_df['wind>ps'] = (np.where(feedin_df['wind_pwr'] >= ps, 1, 0))*(feedin_df['wind_pwr']-ps)
+    feedin_df['wind<ps'] = feedin_df['wind_pwr'] - feedin_df['wind>ps']
+    feedin_df['pv>ps'] = (np.where(feedin_df['pv_pwr'] >= ps, 1, 0))*(feedin_df['pv_pwr']-ps)
+    feedin_df['pv<ps'] = feedin_df['pv_pwr'] - feedin_df['pv>ps']
+    # feedin_df.to_csv('feedin_gvm.csv')
 
     pp = get_transformer_db(conn, schema, table, scenario_base, 'pv')
     if pp.empty:
         print('keine pv')
     else:
         for index, row in pp.iterrows():
-            source.FixedSource(
-                uid=('FixedSrc', region.name, row['plant'], 'pv'),
-                outputs=[obj for obj in region.entities if obj.uid ==
-                         "('bus', '"+region.name+"', 'elec')"],
-                val=feedin_df['pv_pwr'],
-                out_max=[float(row['power'])])
+            if peakshaving:
+                source.FixedSource(
+                    uid=('FixedSrc', region.name, row['plant'], 'pv>05'),
+                    outputs=[obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'el_excess')"],
+                    val=feedin_df['pv>ps'],
+                    out_max=[float(row['power'])])
+                source.FixedSource(
+                    uid=('FixedSrc', region.name, row['plant'], 'pv<05'),
+                    outputs=[obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'elec')"],
+                    val=feedin_df['pv<ps'],
+                    out_max=[float(row['power'])])
+            else:
+                source.FixedSource(
+                    uid=('FixedSrc', region.name, row['plant'], 'pv'),
+                    outputs=[obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'elec')"],
+                    val=feedin_df['pv_pwr'],
+                    out_max=[float(row['power'])])
 
     pp = get_transformer_db(conn, schema, table, scenario_base, 'wind')
     if pp.empty:
         print('keine windkraft')
     else:
         for index, row in pp.iterrows():
-            source.FixedSource(
-                uid=('FixedSrc', region.name, row['plant'], 'wind'),
-                outputs=[obj for obj in region.entities if obj.uid ==
-                         "('bus', '"+region.name+"', 'elec')"],
-                val=feedin_df['wind_pwr'],
-                out_max=[float(row['power'])])
+            if peakshaving:
+                source.FixedSource(
+                    uid=('FixedSrc', region.name, row['plant'], 'wind>05'),
+                    outputs=[obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'el_excess')"],
+                    val=feedin_df['wind>ps'],
+                    out_max=[float(row['power'])])
+                source.FixedSource(
+                    uid=('FixedSrc', region.name, row['plant'], 'wind<05'),
+                    outputs=[obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'elec')"],
+                    val=feedin_df['wind<ps'],
+                    out_max=[float(row['power'])])
+            else:                
+                source.FixedSource(
+                    uid=('FixedSrc', region.name, row['plant'], 'wind'),
+                    outputs=[obj for obj in region.entities if obj.uid ==
+                             "('bus', '"+region.name+"', 'elec')"],
+                    val=feedin_df['wind_pwr'],
+                    out_max=[float(row['power'])])
 
     
