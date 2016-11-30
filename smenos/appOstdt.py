@@ -50,7 +50,7 @@ conn = db.connection()
 # there are some planned for 2017, 18 and 19
 
 filename_ee = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                        'nep2024_ee.p'))
+                                        'potential_ee.p'))
 
 cap_initial = 0.0
 chp_faktor_flex = 0.84  # share of flexible generation of CHP
